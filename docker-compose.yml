@@ -1,0 +1,11 @@
+version: '3.8'
+
+services:
+  elesh-archivist:
+    environment:
+      - OLLAMA_API_BASE_URL=http://ollama:11434
+    volumes:
+      - /mnt/infrastructure/elesh-archivist/lore:/app/lore
+      - /mnt/infrastructure/elesh-archivist/prompts/system.txt:/app/system.txt
+    ports:
+      - "5005:5005"

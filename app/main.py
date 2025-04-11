@@ -3,11 +3,17 @@ from indexer import load_index
 from query import ask_archivist
 
 app = Flask(__name__)
-index = load_index()
+try:
+    index = load_index()
+except Exception as e:
+    print(f"Failed to load index: {e}")
+    index = None
 
 @app.route("/ask", methods=["POST"])
 def ask():
     question = request.json.get("question", "")
+    if index is None:
+        return jsonify({"response": "The Archivist is not yet connected to the lore archive. Please try again later."})
     response = ask_archivist(question, index)
     return jsonify({"response": response})
 
