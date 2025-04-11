@@ -1,4 +1,4 @@
-from llama_index.readers import SimpleDirectoryReader
+from llama_index.readers.file import SimpleDirectoryReader
 from llama_index import VectorStoreIndex
 
 def load_index():

@@ -1,4 +1,5 @@
 flask
-llama-index==0.10.35
+llama-index
+llama-index-readers-file
 openai
 ollama
