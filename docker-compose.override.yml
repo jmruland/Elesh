@@ -3,7 +3,7 @@ version: '3.8'
 services:
   dnd-archivist:
     environment:
-      - OLLAMA_API_BASE_URL=http://10.10.220.25:11434
+      - OLLAMA_API_BASE_URL=http://ollama:11434
     volumes:
       - /mnt/infrastructure/dnd-archivist/lore:/app/lore
       - /mnt/infrastructure/dnd-archivist/prompts/system.txt:/app/system.txt
