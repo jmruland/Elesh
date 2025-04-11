@@ -7,7 +7,7 @@ Powered by:
 - [Ollama](https://ollama.com) for local LLMs and embeddings
 - Flask API for a lightweight interface
 - Optional integration with [Open WebUI](https://github.com/open-webui/open-webui)
-
+- **ChatGPT 4o because I'm trash.**
 ---
 
 ## 📦 Docker Hub
