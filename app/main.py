@@ -1,8 +1,13 @@
 from flask import Flask, request, jsonify
 from indexer import load_index
 from query import ask_archivist
+from routes.status import status_bp
+import json
+import os
 
 app = Flask(__name__)
+app.register_blueprint(status_bp)
+
 try:
     index = load_index()
 except Exception as e:
