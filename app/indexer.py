@@ -1,5 +1,6 @@
 import time
 import requests
+import os
 from llama_index.core import SimpleDirectoryReader, VectorStoreIndex, Settings
 from llama_index.embeddings.ollama import OllamaEmbedding
 
@@ -26,7 +27,10 @@ def load_index():
     reader = SimpleDirectoryReader(input_dir="./lore", recursive=True)
     docs = reader.load_data()
 
-    embed_model = OllamaEmbedding(model_name="nomic-embed-text")
+    embed_model = OllamaEmbedding(
+    model_name="nomic-embed-text",
+    base_url=os.getenv("OLLAMA_API_BASE_URL", "http://ollama:11434")
+)
     Settings.embed_model = embed_model
 
     index = VectorStoreIndex.from_documents(docs)
