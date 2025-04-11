@@ -1,5 +1,4 @@
 flask
 llama-index
-llama-index-readers-file
 openai
 ollama
