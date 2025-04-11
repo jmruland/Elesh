@@ -8,14 +8,17 @@ def wait_for_ollama(url="http://ollama:11434", timeout=60):
     start = time.time()
     while time.time() - start < timeout:
         try:
-            r = requests.get(url)
+            r = requests.post(
+                f"{url}/api/embeddings",
+                json={"model": "nomic-embed-text", "prompt": "test"}
+            )
             if r.status_code == 200:
-                print("Ollama is up!")
+                print("Ollama is ready and embedding model is responsive!")
                 return
         except Exception as e:
             print(f"Waiting... ({e})")
         time.sleep(5)
-    raise RuntimeError("Ollama did not become available in time.")
+    raise RuntimeError("Ollama did not respond to embedding requests in time.")
 
 def load_index():
     wait_for_ollama()
