@@ -1,6 +1,6 @@
 flask
 llama-index
 llama-index-embeddings-ollama
-openai
+openai>=1.0.0
 ollama
 requests

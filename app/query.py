@@ -1,4 +1,4 @@
-import openai
+from openai import OpenAI
 import os
 
 def get_system_prompt():
@@ -11,17 +11,19 @@ def ask_archivist(question, index):
     context_text = "\n\n".join([doc.text for doc in context_docs])
 
     system_prompt = get_system_prompt()
-    messages = [
-        {"role": "system", "content": system_prompt},
-        {"role": "user", "content": f"{context_text}\n\n{question}"}
-    ]
 
-    openai.api_base = os.getenv("OLLAMA_API_BASE_URL", "http://ollama:11434")
-    openai.api_key = "ollama"  # placeholder
+    client = OpenAI(
+        base_url=os.getenv("OLLAMA_API_BASE_URL", "http://ollama:11434"),
+        api_key="ollama"
+    )
 
-    response = openai.ChatCompletion.create(
+    response = client.chat.completions.create(
         model="llama3",
-        messages=messages,
+        messages=[
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": f"{context_text}\n\n{question}"}
+        ],
         temperature=0.7
     )
-    return response['choices'][0]['message']['content']
+
+    return response.choices[0].message.content
