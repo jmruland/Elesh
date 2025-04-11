@@ -7,18 +7,24 @@ from llama_index.embeddings.ollama import OllamaEmbedding
 def wait_for_ollama(url="http://ollama:11434", timeout=60):
     print("Waiting for Ollama to be ready...")
     start = time.time()
+    attempt = 1
     while time.time() - start < timeout:
+        print(f"Attempt {attempt}: Checking Ollama at {url}/api/embeddings")
         try:
             r = requests.post(
                 f"{url}/api/embeddings",
-                json={"model": "nomic-embed-text", "prompt": "test"}
+                json={"model": "nomic-embed-text", "prompt": "test"},
+                timeout=3
             )
             if r.status_code == 200:
                 print("Ollama is ready and embedding model is responsive!")
                 return
+            else:
+                print(f"Unexpected response code: {r.status_code}, Body: {r.text}")
         except Exception as e:
-            print(f"Waiting... ({e})")
-        time.sleep(5)
+            print(f"Waiting... Error: {e}")
+        attempt += 1
+        time.sleep(2)
     raise RuntimeError("Ollama did not respond to embedding requests in time.")
 
 def load_index():
@@ -27,10 +33,8 @@ def load_index():
     reader = SimpleDirectoryReader(input_dir="./lore", recursive=True)
     docs = reader.load_data()
 
-    embed_model = OllamaEmbedding(
-    model_name="nomic-embed-text",
-    base_url=os.getenv("OLLAMA_API_BASE_URL", "http://ollama:11434")
-)
+    base_url = os.getenv("OLLAMA_API_BASE_URL", "http://ollama:11434")
+    embed_model = OllamaEmbedding(model_name="nomic-embed-text", base_url=base_url)
     Settings.embed_model = embed_model
 
     index = VectorStoreIndex.from_documents(docs)
