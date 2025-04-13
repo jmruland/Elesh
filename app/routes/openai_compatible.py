@@ -1,35 +1,72 @@
-from flask import Blueprint, request, jsonify, current_app, Response, stream_with_context
-from query import ask_archivist
+from flask import Blueprint, request, Response, stream_with_context, jsonify
+from collections import defaultdict, deque
+from llama_index import StorageContext, load_index_from_storage
+from query import ask_archivist, stream_archivist_response, get_system_prompt
 
 openai_bp = Blueprint("openai_compatible", __name__)
 
+# Load vector index once
+storage_context = StorageContext.from_defaults(persist_dir="./vectorstore")
+index = load_index_from_storage(storage_context)
+
+# Store recent messages per user (by IP address)
+user_sessions = defaultdict(lambda: deque(maxlen=10))
+
 @openai_bp.route("/v1/chat/completions", methods=["POST"])
 def completions():
-    index = current_app.config.get("INDEX")
     data = request.get_json()
-    messages = data.get("messages", [])
     stream = data.get("stream", False)
+    messages = data["messages"]
 
-    if not messages or not isinstance(messages, list):
-        return jsonify({"error": "Invalid request: 'messages' must be a list."}), 400
+    # Identify the user
+    user_id = request.remote_addr or "anonymous"
+    user_sessions[user_id].extend(messages)
 
-    question = "\n\n".join([msg.get("content", "") for msg in messages if msg.get("role") == "user"])
+    print(f"[USER] {user_id} sent {len(messages)} message(s)")
 
-    if not index:
-        return jsonify({
-            "choices": [{"message": {"role": "assistant", "content": "The Archivist is not connected to the lore archive."}}]
-        })
+    # Reconstruct full conversation as prompt
+    conversation = "\n".join(
+        f"{m['role'].capitalize()}: {m['content']}" for m in user_sessions[user_id]
+    )
+    prompt = f"{get_system_prompt()}\n\n{conversation}\n\nArchivist:"
+    print(f"[PROMPT] {prompt[:300]}...")
 
-    if not stream:
-        answer = ask_archivist(question, index)
-        return jsonify({
-            "choices": [{"message": {"role": "assistant", "content": answer}}]
-        })
+    if stream:
+        def event_stream():
+            for chunk in stream_archivist_response(prompt, index):
+                print(f"[STREAM] {chunk}")
+                yield f"data: {chunk}\n\n"
+        return Response(stream_with_context(event_stream()), mimetype="text/event-stream")
 
-    def generate():
-        answer = ask_archivist(question, index)
-        for word in answer.split():
-            yield f"data: {{\"choices\":[{{\"delta\":{{\"content\":\"{word} \"}}}}]}}\n"
-        yield "data: [DONE]\n"
+    answer = ask_archivist(prompt, index)
+    print(f"[RESPONSE] {answer}")
 
-    return Response(stream_with_context(generate()), mimetype="text/event-stream")
+    return jsonify({
+        "id": "chatcmpl-local",
+        "object": "chat.completion",
+        "choices": [{
+            "index": 0,
+            "message": {
+                "role": "assistant",
+                "content": answer
+            },
+            "finish_reason": "stop"
+        }],
+        "model": "elesh-archivist",
+        "system_prompt": get_system_prompt()
+    })
+
+@openai_bp.route("/v1/models", methods=["GET"])
+def models():
+    return jsonify({
+        "object": "list",
+        "data": [
+            {
+                "id": "elesh-archivist",
+                "object": "model",
+                "created": 0,
+                "owned_by": "user",
+                "permission": []
+            }
+        ]
+    })
