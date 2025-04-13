@@ -6,8 +6,11 @@ ask_bp = Blueprint("ask", __name__)
 @ask_bp.route("/ask", methods=["POST"])
 def ask():
     index = current_app.config.get("INDEX")
-    question = request.json.get("question", "")
+    data = request.get_json()
+    question = data.get("question", "")
+
     if not index:
-        return jsonify({"response": "The Archivist is not yet connected to the lore archive. Please try again later."})
+        return jsonify({"response": "The Archivist is not yet connected to the lore archive."})
+
     response = ask_archivist(question, index)
     return jsonify({"response": response})

@@ -1,11 +1,12 @@
-FROM python:3.10-bullseye
+FROM python:3.10-slim
 
 WORKDIR /app
 
-COPY requirements.txt .
-RUN apt update && apt install -y curl bash iputils-ping \
-    && pip install --no-cache-dir -r requirements.txt
+COPY requirements.txt ./
+RUN pip install --no-cache-dir -r requirements.txt
 
-COPY app/ /app/
+COPY . .
 
-CMD ["python", "main.py"]
+EXPOSE 5005
+
+CMD ["python", "app/main.py"]

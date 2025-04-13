@@ -2,12 +2,37 @@ version: '3.8'
 
 services:
   elesh-archivist:
-    image: jmruland/elesh-archivist:latest
+    build: .
     container_name: elesh-archivist
-    environment:
-      - OLLAMA_API_BASE_URL=http://host.docker.internal:11434
-    volumes:
-      - /mnt/infrastructure/elesh-archivist/lore:/app/lore
-      - /mnt/infrastructure/elesh-archivist/prompts/system.txt:/app/system.txt
     ports:
       - "5005:5005"
+    volumes:
+      - ./lore:/app/lore
+      - ./system.txt:/app/system.txt
+    environment:
+      - OLLAMA_API_BASE_URL=http://ollama:11434
+    depends_on:
+      - ollama
+    networks:
+      - backend
+
+  ollama:
+    image: ollama/ollama:latest
+    container_name: ollama
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama-data:/root/.ollama
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - capabilities: [gpu]
+    networks:
+      - backend
+
+volumes:
+  ollama-data:
+
+networks:
+  backend:
