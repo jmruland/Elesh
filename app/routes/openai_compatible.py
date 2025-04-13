@@ -15,7 +15,7 @@ if os.path.exists(os.path.join(vectorstore_path, "docstore.json")):
     index = load_index_from_storage(storage_context)
 else:
     print("[WARN] No index found. Creating temporary blank index...")
-    docs = [SimpleDirectoryReader("./lore").load_data()]
+    docs = SimpleDirectoryReader("./lore").load_data()
     index = VectorStoreIndex.from_documents(docs)
 
 # Store recent messages per user (by IP address)
