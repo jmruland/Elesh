@@ -1,24 +1,33 @@
 from flask import Blueprint, request, Response, stream_with_context, jsonify
 from collections import defaultdict, deque
-from llama_index.core.storage.storage_context import StorageContext
-from llama_index.core import load_index_from_storage, VectorStoreIndex, SimpleDirectoryReader
-from query import ask_archivist, stream_archivist_response, get_system_prompt
 import os
+
+from llama_index.core import VectorStoreIndex, SimpleDirectoryReader, load_index_from_storage
+from llama_index.core.storage.storage_context import StorageContext
+from llama_index.core.settings import Settings
+from llama_index.embeddings.ollama import OllamaEmbedding
+
+from query import ask_archivist, stream_archivist_response, get_system_prompt
+
+# 🔧 Set embedding model to use Ollama
+Settings.embed_model = OllamaEmbedding(model_name="nomic-embed-text")
 
 openai_bp = Blueprint("openai_compatible", __name__)
 
-# Load or initialize index
+# 📦 Load or initialize vector index
 vectorstore_path = "./vectorstore"
 if os.path.exists(os.path.join(vectorstore_path, "docstore.json")):
-    print("[INFO] Loading existing index...")
+    print("[INFO] Loading existing vector index...")
     storage_context = StorageContext.from_defaults(persist_dir=vectorstore_path)
     index = load_index_from_storage(storage_context)
 else:
-    print("[WARN] No index found. Creating temporary blank index...")
+    print("[WARN] No index found. Creating temporary blank index from ./lore...")
     docs = SimpleDirectoryReader("./lore").load_data()
     index = VectorStoreIndex.from_documents(docs)
+    index.storage_context.persist()
+    print("[INFO] Index created and persisted.")
 
-# Store recent messages per user (by IP address)
+# 🧠 Maintain short-term user memory per IP
 user_sessions = defaultdict(lambda: deque(maxlen=10))
 
 @openai_bp.route("/v1/chat/completions", methods=["POST"])
@@ -41,6 +50,7 @@ def completions():
     if stream:
         def event_stream():
             for chunk in stream_archivist_response(prompt, index):
+                print(f"[STREAM] {chunk}")
                 yield f"data: {chunk}\n\n"
         return Response(stream_with_context(event_stream()), mimetype="text/event-stream")
 
