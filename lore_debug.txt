@@ -1,0 +1,23 @@
+This file is generated at runtime to summarize:
+- Which documents were indexed
+- How many were empty
+- Preview lines from each entry
+- Timestamps of index creation and reload
+
+Useful for:
+- Checking lore file count and parse success
+- Diagnosing bad formatting in entries
+- Logging what the archivist has access to
+
+Example snippet:
+
+```
+[473] Preview: Huge Dragon, Chaotic Neutral
+[474] Preview: Huge Dragon, Chaotic Evil
+[475] Preview: Huge Dragon, Chaotic Evil
+...
+[503] Preview: Large Construct, Chaotic Evil
+Timestamp: 2025-04-13T18:25:22
+```
+
+See also: `lore_summary.json` (machine-readable version of this log)
