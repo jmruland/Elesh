@@ -1,14 +1,22 @@
 from flask import Blueprint, request, Response, stream_with_context, jsonify
 from collections import defaultdict, deque
 from llama_index.core.storage.storage_context import StorageContext
-from llama_index.core import load_index_from_storage
+from llama_index.core import load_index_from_storage, VectorStoreIndex, SimpleDirectoryReader
 from query import ask_archivist, stream_archivist_response, get_system_prompt
+import os
 
 openai_bp = Blueprint("openai_compatible", __name__)
 
-# Load vector index once
-storage_context = StorageContext.from_defaults(persist_dir="./vectorstore")
-index = load_index_from_storage(storage_context)
+# Load or initialize index
+vectorstore_path = "./vectorstore"
+if os.path.exists(os.path.join(vectorstore_path, "docstore.json")):
+    print("[INFO] Loading existing index...")
+    storage_context = StorageContext.from_defaults(persist_dir=vectorstore_path)
+    index = load_index_from_storage(storage_context)
+else:
+    print("[WARN] No index found. Creating temporary blank index...")
+    docs = [SimpleDirectoryReader("./lore").load_data()]
+    index = VectorStoreIndex.from_documents(docs)
 
 # Store recent messages per user (by IP address)
 user_sessions = defaultdict(lambda: deque(maxlen=10))
@@ -19,13 +27,11 @@ def completions():
     stream = data.get("stream", False)
     messages = data["messages"]
 
-    # Identify the user
     user_id = request.remote_addr or "anonymous"
     user_sessions[user_id].extend(messages)
 
     print(f"[USER] {user_id} sent {len(messages)} message(s)")
 
-    # Reconstruct full conversation as prompt
     conversation = "\n".join(
         f"{m['role'].capitalize()}: {m['content']}" for m in user_sessions[user_id]
     )
@@ -35,7 +41,6 @@ def completions():
     if stream:
         def event_stream():
             for chunk in stream_archivist_response(prompt, index):
-                print(f"[STREAM] {chunk}")
                 yield f"data: {chunk}\n\n"
         return Response(stream_with_context(event_stream()), mimetype="text/event-stream")
 
