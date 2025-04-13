@@ -1,6 +1,7 @@
 from flask import Blueprint, request, Response, stream_with_context, jsonify
 from collections import defaultdict, deque
-from llama_index import StorageContext, load_index_from_storage
+from llama_index.core.storage.storage_context import StorageContext
+from llama_index.core import load_index_from_storage
 from query import ask_archivist, stream_archivist_response, get_system_prompt
 
 openai_bp = Blueprint("openai_compatible", __name__)
