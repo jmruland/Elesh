@@ -1,33 +1,64 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8">
-  <title>Elesh Archivist - Status</title>
+  <title>Elesh Archivist Status</title>
   <meta http-equiv="refresh" content="30">
   <style>
-    body { font-family: sans-serif; margin: 2rem; background: #f4f4f4; }
-    h1 { color: #333; }
-    .card { background: #fff; border-radius: 8px; padding: 1rem; margin-bottom: 1rem; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
-    .status { padding: 0.5rem 1rem; border-radius: 6px; display: inline-block; font-weight: bold; }
-    .status.ok { background-color: #d4edda; color: #155724; }
-    .status.fail { background-color: #f8d7da; color: #721c24; }
-    .info { margin-bottom: 1rem; }
-    .label { font-weight: bold; }
+    body {
+      font-family: Arial, sans-serif;
+      background: #f9f9f9;
+      margin: 2em;
+    }
+
+    h1 {
+      color: #333;
+    }
+
+    ul {
+      list-style-type: none;
+      padding-left: 0;
+    }
+
+    li {
+      margin: 0.5em 0;
+    }
+
+    .ok {
+      color: green;
+    }
+
+    .warn {
+      color: darkorange;
+    }
+
+    .fail {
+      color: red;
+    }
+
+    code {
+      background: #eee;
+      padding: 2px 4px;
+    }
   </style>
 </head>
+
 <body>
-  <h1>Elesh Archivist - System Status</h1>
-
-  <div class="info">
-    <p><span class="label">Lore Path:</span> {{ lore_path }}</p>
-    <p><span class="label">Total Lore Files Indexed:</span> {{ lore_count }}</p>
-    <p><span class="label">Ollama Connection:</span>
-      <span class="status {% if ollama_status %}ok{% else %}fail{% endif %}">
-        {% if ollama_status %}Connected{% else %}Unavailable{% endif %}
-      </span>
-    </p>
-  </div>
-
-  <p class="timestamp">Page auto-refreshes every 30 seconds.</p>
+  <h1>Elesh Archivist Status</h1>
+  <ul>
+    <li><strong>📁 Lore Directory:</strong> <code>{{ lore_path }}</code></li>
+    <li><strong>📚 Documents Indexed:</strong> {{ lore_count }}</li>
+    {% if ollama_status %}
+    <li class="ok"><strong>✅ Ollama Connection:</strong> OK</li>
+    {% if ollama_models_missing %}
+    <li class="warn"><strong>⚠️ Missing Ollama Models:</strong> {{ ollama_models_missing | join(", ") }}</li>
+    {% endif %}
+    {% else %}
+    <li class="fail"><strong>❌ Ollama Connection:</strong> Failed</li>
+    {% endif %}
+  </ul>
+  <p><em>This page refreshes every 30 seconds.</em></p>
 </body>
+
 </html>

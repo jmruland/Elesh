@@ -8,6 +8,9 @@ from routes.openai_compatible import openai_bp
 from routes.health import health_bp
 from routes.reload import reload_bp
 from query import get_system_prompt
+from utils.ollama import check_required_ollama_models
+check_required_ollama_models()
+
 
 app = Flask(__name__)
 
