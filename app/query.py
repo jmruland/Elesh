@@ -1,5 +1,5 @@
-from openai import OpenAI
 import os
+import requests
 
 def get_system_prompt():
     with open("system.txt", "r") as f:
@@ -12,18 +12,16 @@ def ask_archivist(question, index):
 
     system_prompt = get_system_prompt()
 
-    client = OpenAI(
-        base_url=os.getenv("OLLAMA_API_BASE_URL", "http://ollama:11434"),
-        api_key="ollama"
+    prompt = f"{system_prompt}\n\nContext:\n{context_text}\n\nUser: {question}\n\nArchivist:"
+
+    response = requests.post(
+        os.getenv("OLLAMA_API_BASE_URL", "http://ollama:11434") + "/api/generate",
+        json={
+            "model": "llama3",
+            "prompt": prompt,
+            "stream": False
+        },
+        timeout=30
     )
 
-    response = client.chat.completions.create(
-        model="llama3",
-        messages=[
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": f"{context_text}\n\n{question}"}
-        ],
-        temperature=0.7
-    )
-
-    return response.choices[0].message.content
+    return response.json().get("response", "[No response generated]")
