@@ -2,17 +2,19 @@ version: '3.8'
 
 services:
   elesh-archivist:
-    build: .
+    image: jmruland/elesh-archivist:latest
     container_name: elesh-archivist
     ports:
       - "5005:5005"
     volumes:
-      - ./lore:/app/lore
-      - ./system.txt:/app/system.txt
+      - /mnt/infrastructure/elesh-archivist/lore:/app/lore
+      - /mnt/infrastructure/elesh-archivist/system.txt:/app/system.txt
+      - /mnt/infrastructure/elesh-archivist/vectorstore:/app/vectorstore
     environment:
       - OLLAMA_API_BASE_URL=http://ollama:11434
     depends_on:
       - ollama
+    restart: unless-stopped
     networks:
       - backend
 
@@ -22,17 +24,10 @@ services:
     ports:
       - "11434:11434"
     volumes:
-      - ollama-data:/root/.ollama
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - capabilities: [gpu]
+      - /mnt/infrastructure/ollama/.ollama:/root/.ollama
+    restart: always
     networks:
       - backend
-
-volumes:
-  ollama-data:
 
 networks:
   backend:

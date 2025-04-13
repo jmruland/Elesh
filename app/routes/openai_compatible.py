@@ -1,61 +1,39 @@
 from flask import Blueprint, request, Response, stream_with_context, jsonify
-from collections import defaultdict, deque
-import os
-
-from llama_index.core import VectorStoreIndex, SimpleDirectoryReader, load_index_from_storage
-from llama_index.core.storage.storage_context import StorageContext
-from llama_index.core.settings import Settings
+from llama_index.core import SimpleDirectoryReader, VectorStoreIndex
 from llama_index.embeddings.ollama import OllamaEmbedding
-
+from llama_index.core.settings import Settings
 from query import ask_archivist, stream_archivist_response, get_system_prompt
-
-# 🔧 Set embedding model to use Ollama
-Settings.embed_model = OllamaEmbedding(model_name="nomic-embed-text")
+import os
 
 openai_bp = Blueprint("openai_compatible", __name__)
 
-# 📦 Load or initialize vector index
-vectorstore_path = "./vectorstore"
-if os.path.exists(os.path.join(vectorstore_path, "docstore.json")):
-    print("[INFO] Loading existing vector index...")
-    storage_context = StorageContext.from_defaults(persist_dir=vectorstore_path)
+# Embedding model setup (nomic-embed-text must be pulled in advance)
+Settings.embed_model = OllamaEmbedding(model_name="nomic-embed-text")
+
+# Try to load from vectorstore, otherwise generate from /lore
+try:
+    from llama_index.core.storage import StorageContext, load_index_from_storage
+    storage_context = StorageContext.from_defaults(persist_dir="./vectorstore")
     index = load_index_from_storage(storage_context)
-else:
-    print("[WARN] No index found. Creating temporary blank index from ./lore...")
+    print("[INFO] Loaded index from persistent vectorstore.")
+except Exception as e:
+    print(f"[WARN] No index found. Creating temporary blank index from ./lore... ({e})")
     docs = SimpleDirectoryReader("./lore").load_data()
     index = VectorStoreIndex.from_documents(docs)
-    index.storage_context.persist()
-    print("[INFO] Index created and persisted.")
-
-# 🧠 Maintain short-term user memory per IP
-user_sessions = defaultdict(lambda: deque(maxlen=10))
 
 @openai_bp.route("/v1/chat/completions", methods=["POST"])
 def completions():
     data = request.get_json()
+    question = data["messages"][-1]["content"]
     stream = data.get("stream", False)
-    messages = data["messages"]
-
-    user_id = request.remote_addr or "anonymous"
-    user_sessions[user_id].extend(messages)
-
-    print(f"[USER] {user_id} sent {len(messages)} message(s)")
-
-    conversation = "\n".join(
-        f"{m['role'].capitalize()}: {m['content']}" for m in user_sessions[user_id]
-    )
-    prompt = f"{get_system_prompt()}\n\n{conversation}\n\nArchivist:"
-    print(f"[PROMPT] {prompt[:300]}...")
 
     if stream:
         def event_stream():
-            for chunk in stream_archivist_response(prompt, index):
-                print(f"[STREAM] {chunk}")
+            for chunk in stream_archivist_response(question, index):
                 yield f"data: {chunk}\n\n"
         return Response(stream_with_context(event_stream()), mimetype="text/event-stream")
 
-    answer = ask_archivist(prompt, index)
-    print(f"[RESPONSE] {answer}")
+    answer = ask_archivist(question, index)
 
     return jsonify({
         "id": "chatcmpl-local",
