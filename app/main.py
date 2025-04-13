@@ -5,6 +5,8 @@ from routes.ask import ask_bp
 from routes.reload import reload_bp
 from routes.health import health_bp
 from routes.openai_compatible import openai_bp
+from routes.frontend import frontend_bp
+
 
 app = Flask(__name__)
 
@@ -13,6 +15,7 @@ app.register_blueprint(ask_bp)
 app.register_blueprint(reload_bp)
 app.register_blueprint(health_bp)
 app.register_blueprint(openai_bp)
+app.register_blueprint(frontend_bp)
 
 try:
     app.config["INDEX"] = load_index()

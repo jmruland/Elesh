@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Elesh Archivist - Status</title>
+  <style>
+    body { font-family: sans-serif; margin: 2rem; background: #f4f4f4; }
+    h1 { color: #333; }
+    .card { background: #fff; border-radius: 8px; padding: 1rem; margin-bottom: 1rem; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+    .timestamp { font-size: 0.9rem; color: #666; }
+  </style>
+</head>
+<body>
+  <h1>Elesh Archivist - Lore Summary</h1>
+  {% if lore %}
+    {% for entry in lore %}
+      <div class="card">
+        <div class="timestamp">{{ entry.timestamp }}</div>
+        <div class="preview">{{ entry.preview }}</div>
+      </div>
+    {% endfor %}
+  {% else %}
+    <p>No lore entries found.</p>
+  {% endif %}
+</body>
+</html>
