@@ -1,90 +1,64 @@
-# 🧠 Elesh the Archivist
+# Elesh Archivist
 
-**Elesh** is a fully local, AI-powered in-character NPC designed for use in TTRPGs and fantasy worlds. Elesh serves as the Grand Archivist of your world’s lore — answering player and GM questions strictly using provided documents and worldbuilding files.
+An OpenAI-compatible, self-hosted D&D lore assistant powered by Flask and LlamaIndex, built to serve as an in-character NPC Archivist that can answer questions about your world.
 
-Powered by:
-- [LlamaIndex](https://github.com/run-llama/llama_index) for Retrieval-Augmented Generation (RAG)
-- [Ollama](https://ollama.com) for local LLMs and embeddings
-- Flask API for a lightweight interface
-- Optional integration with [Open WebUI](https://github.com/open-webui/open-webui)
-- **ChatGPT 4o because I'm trash.**
 ---
 
-## 📦 Docker Hub
+## 🚀 Features
+- Loads campaign lore from markdown or text files
+- Generates vector index using LlamaIndex and Ollama embeddings
+- Exposes a `/v1/chat/completions` endpoint compatible with OpenWebUI
+- Supports streaming responses (`stream: true`)
+- Includes `/ask`, `/reload`, `/status`, and `/healthz` endpoints
 
-Pull the prebuilt image from Docker Hub:
+---
 
-```bash
-docker pull jmruland/elesh-archivist:latest
-docker run -d \
-  --name elesh-archivist \
-  -p 5005:5005 \
-  -v /mnt/infrastructure/dnd-archivist/lore:/app/lore \
-  -v /mnt/infrastructure/dnd-archivist/prompts/system.txt:/app/system.txt \
-  -e OLLAMA_API_BASE_URL=http://host.docker.internal:11434 \
-  jmruland/elesh-archivist:latest
-```
+## 📁 Folder Layout
+- `app/`: Flask app and logic
+- `tests/`: Pytest-based unit and integration tests
+- `Dockerfile`: containerization setup
+- `docker-compose.yml`: deployment stack
 
-## 📁 Lore Directory Structure
-Elesh expects the following layout mounted into the container:
+---
 
-```bash
-/mnt/infrastructure/dnd-archivist/
-├── lore/              # Markdown or plain text lore files
-│   ├── auroran_academy.md
-│   ├── solar_order.txt
-│   └── map_notes.pdf
-├── prompts/
-│   └── system.txt     # Elesh's in-character persona description
-```
-
-## 🧠 Querying the Archivist
-Ask a question with a simple POST:
+## 🧪 Test Endpoints
 
 ```bash
-curl -X POST http://localhost:5005/ask \
-  -H "Content-Type: application/json" \
-  -d '{"question": "What is the Solar Order?"}'
-Elesh will respond in-character using only indexed lore.
+# Health check
+curl http://localhost:5005/healthz
+
+# Reload lore
+curl -X POST http://localhost:5005/reload
+
+# Ask a question
+curl http://localhost:5005/ask \
+  -X POST -H "Content-Type: application/json" \
+  -d '{"question": "What is the Arcane Commonwealth?"}'
+
+# OpenAI-compatible request
+curl http://localhost:5005/v1/chat/completions \
+  -X POST -H "Content-Type: application/json" \
+  -d '{
+    "model": "elesh-archivist",
+    "messages": [
+      {"role": "user", "content": "Tell me about Arden."}
+    ]
+  }'
 ```
 
-## 🔄 How It Works
-On container startup:
+---
 
-Loads all .md, .txt, and .pdf lore documents
+## 📦 Usage with OpenWebUI
+1. Go to Settings → Connections
+2. Click **Add Connection** → Select `OpenAI Compatible`
+3. Fill in:
+   - **Name**: `Elesh Archivist`
+   - **Base URL**: `http://localhost:5005/v1`
+   - **API Key**: `ollama`
+   - **Model ID(s)**: `elesh-archivist`
+4. Save and test inside OpenWebUI!
 
-Builds a searchable embedding index via nomic-embed-text from Ollama
+---
 
-Receives POST requests at /ask
-
-Returns contextual, in-character answers drawn only from the lore
-
-## 🛠 Integration Notes
-Use with Open WebUI for a UI
-
-Ollama must have the nomic-embed-text model downloaded:
-
-```bash
-ollama pull nomic-embed-text
-```
-🔁 Continuous Deployment
-This repo includes GitHub Actions that:
-
-Build the Docker image on push to main
-
-Push to Docker Hub as jmruland/elesh-archivist:latest
-
-Secrets required:
-
-DOCKERHUB_USERNAME
-
-DOCKERHUB_TOKEN
-
-## ✨ Roadmap
- /refresh endpoint for dynamic lore reloading
-
- Web UI query panel for players
-
- Session memory and query logging
-
- Multi-language or styled NPC responses
+## 📄 License
+MIT
