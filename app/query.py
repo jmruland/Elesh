@@ -1,7 +1,12 @@
+# app/query.py
+
 import os
 import requests
 import logging
+from utils.db import save_message, get_message_history
+from config import OLLAMA_API_BASE_URL
 
+# Configure logging
 logging.basicConfig(level=logging.DEBUG, format="%(asctime)s [%(levelname)s] %(message)s")
 
 def get_system_prompt():
@@ -9,61 +14,70 @@ def get_system_prompt():
         with open("system.txt", "r", encoding="utf-8") as f:
             return f.read()
     except Exception as e:
-        logging.error("get_system_prompt: Failed to load prompt: %s", e, exc_info=True)
+        logging.error("get_system_prompt: %s", e, exc_info=True)
         return ""
 
-def build_prompt(messages, context):
-    user_messages = "\n".join([f"{m['role'].capitalize()}: {m['content']}" for m in messages if m["role"] != "system"])
-    prompt = f"""{get_system_prompt()}
+def build_prompt_from_messages(messages, context_text):
+    system_prompt = next((m["content"] for m in messages if m["role"] == "system"), get_system_prompt())
+    prompt = f"{system_prompt.strip()}\n\nContext:\n{context_text.strip()}\n\n"
 
-Context:
-{context}
+    for msg in messages:
+        if msg["role"] == "user":
+            prompt += f"User: {msg['content'].strip()}\n"
+        elif msg["role"] == "assistant":
+            prompt += f"Archivist: {msg['content'].strip()}\n"
 
-{user_messages}
-
-Archivist:"""
+    prompt += "Archivist:"
     return prompt
 
-def ask_archivist(messages, index):
+def ask_archivist(messages, index, user_id="anonymous"):
     try:
         retriever = index.as_retriever()
-        context_docs = retriever.retrieve(messages[-1]["content"])
+        latest_question = messages[-1]["content"]
+        context_docs = retriever.retrieve(latest_question)
         context_text = "\n\n".join([doc.text for doc in context_docs])
+        full_messages = get_message_history(user_id) + messages
 
-        prompt = build_prompt(messages, context_text)
-        logging.debug("ask_archivist: Prompt: %s", prompt[:250])
+        prompt = build_prompt_from_messages(full_messages, context_text)
+        save_message(user_id, "user", latest_question)
 
         response = requests.post(
-            os.getenv("OLLAMA_API_BASE_URL", "http://ollama:11434") + "/api/generate",
+            f"{OLLAMA_API_BASE_URL}/api/generate",
             json={"model": "llama3", "prompt": prompt, "stream": False},
-            timeout=30
-        )
-        response.raise_for_status()
-        return response.json().get("response", "[No response generated]")
-    except Exception as e:
-        logging.error("ask_archivist: Error: %s", e, exc_info=True)
-        return "I'm sorry, something went wrong while answering your question."
-
-def stream_archivist_response(messages, index):
-    try:
-        retriever = index.as_retriever()
-        context_docs = retriever.retrieve(messages[-1]["content"])
-        context_text = "\n\n".join([doc.text for doc in context_docs])
-
-        prompt = build_prompt(messages, context_text)
-        logging.debug("stream_archivist_response: Prompt: %s", prompt[:250])
-
-        response = requests.post(
-            os.getenv("OLLAMA_API_BASE_URL", "http://ollama:11434") + "/api/generate",
-            json={"model": "llama3", "prompt": prompt, "stream": True},
-            stream=True,
             timeout=60
         )
-        response.raise_for_status()
+
+        if response.ok:
+            output = response.json().get("response", "")
+            save_message(user_id, "assistant", output)
+            return output
+        else:
+            return f"[Error] Ollama returned {response.status_code}"
+    except Exception as e:
+        logging.exception("ask_archivist error")
+        return "I'm sorry, something went wrong."
+
+def stream_archivist_response(messages, index, user_id="anonymous"):
+    try:
+        retriever = index.as_retriever()
+        latest_question = messages[-1]["content"]
+        context_docs = retriever.retrieve(latest_question)
+        context_text = "\n\n".join([doc.text for doc in context_docs])
+        full_messages = get_message_history(user_id) + messages
+
+        prompt = build_prompt_from_messages(full_messages, context_text)
+        save_message(user_id, "user", latest_question)
+
+        response = requests.post(
+            f"{OLLAMA_API_BASE_URL}/api/generate",
+            json={"model": "llama3", "prompt": prompt, "stream": True},
+            stream=True,
+            timeout=120
+        )
 
         for line in response.iter_lines():
             if line:
                 yield line.decode("utf-8")
     except Exception as e:
-        logging.error("stream_archivist_response: Error: %s", e, exc_info=True)
-        yield '{"response": "[Streaming error]"}'
+        logging.exception("stream_archivist_response error")
+        yield '{"error": "streaming failed."}'
