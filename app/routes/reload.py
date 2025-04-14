@@ -1,5 +1,5 @@
 from flask import Blueprint, jsonify, current_app
-from indexer import load_index
+from indexer import load_or_create_index as load_index
 import os
 import json
 

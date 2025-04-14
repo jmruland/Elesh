@@ -80,3 +80,5 @@ def load_or_create_index():
         print(f"[{datetime.now().isoformat()}] No index found. Creating new one from lore...")
         docs = load_documents()
         return build_and_save_index(docs)
+
+load_index = load_or_create_index
