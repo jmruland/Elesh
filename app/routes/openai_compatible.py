@@ -4,35 +4,40 @@ from llama_index.core.settings import Settings
 from query import ask_archivist, stream_archivist_response, get_system_prompt
 from utils.index_utils import wait_for_ollama, load_or_create_index
 from config import VECTORSTORE_DIR, LORE_PATH, MODEL_NAME, OLLAMA_API_BASE_URL
+import os, logging, re, json
 import uuid
-import json
-import logging
 
 openai_bp = Blueprint("openai_compatible", __name__)
 
-# Configure the embedding model
+# Set the embedding model globally
 Settings.embed_model = OllamaEmbedding(model_name=MODEL_NAME, base_url=OLLAMA_API_BASE_URL)
 
-# Ensure Ollama is online before building index
+# Ensure Ollama is ready
 wait_for_ollama()
 
-# Global shared index
+# Load or create the index
 index = load_or_create_index()
 if index:
-    logging.info("openai_compatible: Lore index loaded.")
+    logging.info("openai_compatible: Using index from unified loader.")
 else:
-    logging.error("openai_compatible: Lore index failed to load.")
+    logging.error("openai_compatible: Lore index is not available!")
 
 def parse_answer(answer_text):
-    """
-    Parses response into a (title, content) tuple if structured correctly.
-    """
-    import re
+    """Parses the raw answer text into a title and detailed answer."""
     pattern = r"Title:\s*(.*?)\s*Answer:\s*(.*)"
     match = re.search(pattern, answer_text, re.DOTALL | re.IGNORECASE)
     if match:
-        return match.group(1).strip(), match.group(2).strip()
-    return "", answer_text.strip()
+        title = match.group(1).strip()
+        content = match.group(2).strip()
+    else:
+        parts = answer_text.splitlines()
+        if len(parts) >= 2 and len(parts[0].split()) <= 10:
+            title = parts[0].strip()
+            content = "\n".join(parts[1:]).strip()
+        else:
+            title = ""
+            content = answer_text.strip()
+    return title, content
 
 @openai_bp.route("/v1/chat/completions", methods=["POST"])
 def completions():
@@ -42,8 +47,9 @@ def completions():
     data = request.get_json()
     question = data["messages"][-1]["content"]
     stream = data.get("stream", False)
+
     model_id = "elesh-archivist"
-    completion_id = f"chatcmpl-{uuid.uuid4().hex}"
+    completion_id = str(uuid.uuid4())
 
     if stream:
         def event_stream():
@@ -55,28 +61,30 @@ def completions():
                         done = chunk_json.get("done", False)
 
                         if content:
-                            yield f"data: {json.dumps({\
-                                'id': completion_id,\
-                                'object': 'chat.completion.chunk',\
-                                'choices': [{\
-                                    'delta': {'content': content},\
-                                    'index': 0,\
-                                    'finish_reason': None\
-                                }],\
-                                'model': model_id\
-                            })}\n\n"
+                            message = {
+                                "id": completion_id,
+                                "object": "chat.completion.chunk",
+                                "choices": [{
+                                    "delta": {"content": content},
+                                    "index": 0,
+                                    "finish_reason": None
+                                }],
+                                "model": model_id
+                            }
+                            yield f"data: {json.dumps(message)}\n\n"
 
                         if done:
-                            yield f"data: {json.dumps({\
-                                'id': completion_id,\
-                                'object': 'chat.completion.chunk',\
-                                'choices': [{\
-                                    'delta': {},\
-                                    'index': 0,\
-                                    'finish_reason': 'stop'\
-                                }],\
-                                'model': model_id\
-                            })}\n\n"
+                            final_message = {
+                                "id": completion_id,
+                                "object": "chat.completion.chunk",
+                                "choices": [{
+                                    "delta": {},
+                                    "index": 0,
+                                    "finish_reason": "stop"
+                                }],
+                                "model": model_id
+                            }
+                            yield f"data: {json.dumps(final_message)}\n\n"
                             yield "data: [DONE]\n\n"
                             break
                     except Exception as e:
@@ -88,9 +96,9 @@ def completions():
 
         return Response(stream_with_context(event_stream()), mimetype="text/event-stream")
 
-    # Non-stream fallback
+    # Non-streaming fallback
     raw_answer = ask_archivist(question, index)
-    _, content = parse_answer(raw_answer)
+    title, content = parse_answer(raw_answer)
 
     return jsonify({
         "id": completion_id,
@@ -99,11 +107,13 @@ def completions():
             "index": 0,
             "message": {
                 "role": "assistant",
+                "title": title,
                 "content": content
             },
             "finish_reason": "stop"
         }],
-        "model": model_id
+        "model": model_id,
+        "system_prompt": get_system_prompt()
     })
 
 @openai_bp.route("/v1/models", methods=["GET"])
