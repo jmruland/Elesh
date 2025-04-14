@@ -22,6 +22,10 @@
         {% else %}
         <li class="fail"><strong>❌ Ollama Connection:</strong> Failed</li>
         {% endif %}
+        <h2>🧱 Docker Space Usage</h2>
+        <pre style="background: #f8f5e9; padding: 1em; border-radius: 8px; box-shadow: inset 0 0 6px #ccc;">
+        {{ docker_usage }}
+        </pre>
     </ul>
 </body>
 
