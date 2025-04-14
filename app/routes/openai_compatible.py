@@ -1,21 +1,25 @@
 from flask import Blueprint, request, Response, stream_with_context, jsonify
-from llama_index.core import SimpleDirectoryReader, VectorStoreIndex
-from llama_index.embeddings.ollama import OllamaEmbedding
+from llama_index.core import SimpleDirectoryReader, VectorStoreIndex, load_index_from_storage
 from llama_index.core.settings import Settings
+from llama_index.embeddings.ollama import OllamaEmbedding
 from query import ask_archivist, stream_archivist_response, get_system_prompt
+from utils.index_utils import wait_for_ollama
 import os
 
 openai_bp = Blueprint("openai_compatible", __name__)
 
-# Embedding model setup (nomic-embed-text must be pulled in advance)
+# === Ensure Ollama is ready ===
+wait_for_ollama()
+
+# === Embedding model setup ===
 Settings.embed_model = OllamaEmbedding(model_name="nomic-embed-text")
 
-# Try to load from vectorstore, otherwise generate from /lore
+VECTORSTORE_DIR = "./vectorstore"
+
+# === Load index from disk or recreate ===
 try:
-    from llama_index.core.storage import StorageContext, load_index_from_storage
-    storage_context = StorageContext.from_defaults(persist_dir="./vectorstore")
-    index = load_index_from_storage(storage_context)
-    print("[INFO] Loaded index from persistent vectorstore.")
+    index = load_index_from_storage(persist_dir=VECTORSTORE_DIR)
+    print(f"[INFO] Loaded index from {VECTORSTORE_DIR}")
 except Exception as e:
     print(f"[WARN] No index found. Creating temporary blank index from ./lore... ({e})")
     docs = SimpleDirectoryReader("./lore").load_data()
