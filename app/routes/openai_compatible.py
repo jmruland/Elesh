@@ -1,43 +1,38 @@
-# app/routes/openai_compatible.py
-
 from flask import Blueprint, request, Response, stream_with_context, jsonify
 from llama_index.embeddings.ollama import OllamaEmbedding
 from llama_index.core.settings import Settings
 from query import ask_archivist, stream_archivist_response, get_system_prompt
 from utils.index_utils import wait_for_ollama, load_or_create_index
 from config import VECTORSTORE_DIR, LORE_PATH, MODEL_NAME, OLLAMA_API_BASE_URL
-import os, logging, re, uuid, json
+import uuid
+import json
+import logging
 
 openai_bp = Blueprint("openai_compatible", __name__)
 
-# Set the embedding model globally.
+# Configure the embedding model
 Settings.embed_model = OllamaEmbedding(model_name=MODEL_NAME, base_url=OLLAMA_API_BASE_URL)
 
-# Ensure Ollama is ready.
+# Ensure Ollama is online before building index
 wait_for_ollama()
 
-# Load (or create) the index once.
+# Global shared index
 index = load_or_create_index()
 if index:
-    logging.info("openai_compatible: Using index from unified loader.")
+    logging.info("openai_compatible: Lore index loaded.")
 else:
-    logging.error("openai_compatible: Lore index is not available!")
+    logging.error("openai_compatible: Lore index failed to load.")
 
 def parse_answer(answer_text):
+    """
+    Parses response into a (title, content) tuple if structured correctly.
+    """
+    import re
     pattern = r"Title:\s*(.*?)\s*Answer:\s*(.*)"
     match = re.search(pattern, answer_text, re.DOTALL | re.IGNORECASE)
     if match:
-        title = match.group(1).strip()
-        content = match.group(2).strip()
-    else:
-        parts = answer_text.splitlines()
-        if len(parts) >= 2 and len(parts[0].split()) <= 10:
-            title = parts[0].strip()
-            content = "\n".join(parts[1:]).strip()
-        else:
-            title = ""
-            content = answer_text.strip()
-    return title, content
+        return match.group(1).strip(), match.group(2).strip()
+    return "", answer_text.strip()
 
 @openai_bp.route("/v1/chat/completions", methods=["POST"])
 def completions():
@@ -47,37 +42,58 @@ def completions():
     data = request.get_json()
     question = data["messages"][-1]["content"]
     stream = data.get("stream", False)
-    chat_id = f"chatcmpl-{uuid.uuid4().hex}"
+    model_id = "elesh-archivist"
+    completion_id = f"chatcmpl-{uuid.uuid4().hex}"
 
     if stream:
         def event_stream():
-            first = True
-            for chunk in stream_archivist_response(question, index):
-                payload = {
-                    "id": chat_id,
-                    "object": "chat.completion.chunk",
-                    "choices": [{
-                        "delta": {
-                            "role": "assistant" if first else None,
-                            "content": chunk
-                        },
-                        "index": 0,
-                        "finish_reason": None
-                    }],
-                    "model": "elesh-archivist"
-                }
-                yield f"data: {json.dumps(payload)}\n\n"
-                first = False
-            yield "data: [DONE]\n\n"
+            try:
+                for chunk in stream_archivist_response(question, index):
+                    try:
+                        chunk_json = json.loads(chunk)
+                        content = chunk_json.get("response", "")
+                        done = chunk_json.get("done", False)
+
+                        if content:
+                            yield f"data: {json.dumps({\
+                                'id': completion_id,\
+                                'object': 'chat.completion.chunk',\
+                                'choices': [{\
+                                    'delta': {'content': content},\
+                                    'index': 0,\
+                                    'finish_reason': None\
+                                }],\
+                                'model': model_id\
+                            })}\n\n"
+
+                        if done:
+                            yield f"data: {json.dumps({\
+                                'id': completion_id,\
+                                'object': 'chat.completion.chunk',\
+                                'choices': [{\
+                                    'delta': {},\
+                                    'index': 0,\
+                                    'finish_reason': 'stop'\
+                                }],\
+                                'model': model_id\
+                            })}\n\n"
+                            yield "data: [DONE]\n\n"
+                            break
+                    except Exception as e:
+                        logging.exception("Error parsing streamed response chunk")
+                        break
+            except Exception as e:
+                logging.exception("Streaming response failed")
+                yield "data: [ERROR] Streaming failure\n\n"
 
         return Response(stream_with_context(event_stream()), mimetype="text/event-stream")
-    
-    # Fallback to full response (non-streaming)
+
+    # Non-stream fallback
     raw_answer = ask_archivist(question, index)
-    title, content = parse_answer(raw_answer)
+    _, content = parse_answer(raw_answer)
 
     return jsonify({
-        "id": chat_id,
+        "id": completion_id,
         "object": "chat.completion",
         "choices": [{
             "index": 0,
@@ -87,8 +103,7 @@ def completions():
             },
             "finish_reason": "stop"
         }],
-        "model": "elesh-archivist",
-        "system_prompt": get_system_prompt()
+        "model": model_id
     })
 
 @openai_bp.route("/v1/models", methods=["GET"])
