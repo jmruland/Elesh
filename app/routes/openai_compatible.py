@@ -4,18 +4,20 @@ from llama_index.core.settings import Settings
 from query import ask_archivist, stream_archivist_response, get_system_prompt
 from utils.index_utils import wait_for_ollama, load_or_create_index
 from config import VECTORSTORE_DIR, LORE_PATH, MODEL_NAME, OLLAMA_API_BASE_URL
-import os, logging, re, json
+
+import os
+import logging
+import re
+import json
 import uuid
 
 openai_bp = Blueprint("openai_compatible", __name__)
 
-# Set the embedding model globally
+# Embedding model setup
 Settings.embed_model = OllamaEmbedding(model_name=MODEL_NAME, base_url=OLLAMA_API_BASE_URL)
-
-# Ensure Ollama is ready
 wait_for_ollama()
 
-# Load or create the index
+# Load the lore index
 index = load_or_create_index()
 if index:
     logging.info("openai_compatible: Using index from unified loader.")
@@ -23,7 +25,7 @@ else:
     logging.error("openai_compatible: Lore index is not available!")
 
 def parse_answer(answer_text):
-    """Parses the raw answer text into a title and detailed answer."""
+    """Parses the raw answer text into a title and answer body."""
     pattern = r"Title:\s*(.*?)\s*Answer:\s*(.*)"
     match = re.search(pattern, answer_text, re.DOTALL | re.IGNORECASE)
     if match:
@@ -45,7 +47,7 @@ def completions():
         return jsonify({"error": "Lore index is not available."}), 500
 
     data = request.get_json()
-    question = data["messages"][-1]["content"]
+    messages = data.get("messages", [])
     stream = data.get("stream", False)
 
     model_id = "elesh-archivist"
@@ -54,50 +56,30 @@ def completions():
     if stream:
         def event_stream():
             try:
-                for chunk in stream_archivist_response(question, index):
+                for chunk in stream_archivist_response(messages, index):
                     try:
                         chunk_json = json.loads(chunk)
                         content = chunk_json.get("response", "")
                         done = chunk_json.get("done", False)
 
                         if content:
-                            message = {
-                                "id": completion_id,
-                                "object": "chat.completion.chunk",
-                                "choices": [{
-                                    "delta": {"content": content},
-                                    "index": 0,
-                                    "finish_reason": None
-                                }],
-                                "model": model_id
-                            }
-                            yield f"data: {json.dumps(message)}\n\n"
+                            yield f"data: {json.dumps({ 'id': completion_id, 'object': 'chat.completion.chunk', 'choices': [{ 'delta': {'content': content}, 'index': 0, 'finish_reason': None }], 'model': model_id })}\n\n"
 
                         if done:
-                            final_message = {
-                                "id": completion_id,
-                                "object": "chat.completion.chunk",
-                                "choices": [{
-                                    "delta": {},
-                                    "index": 0,
-                                    "finish_reason": "stop"
-                                }],
-                                "model": model_id
-                            }
-                            yield f"data: {json.dumps(final_message)}\n\n"
+                            yield f"data: {json.dumps({ 'id': completion_id, 'object': 'chat.completion.chunk', 'choices': [{ 'delta': {}, 'index': 0, 'finish_reason': 'stop' }], 'model': model_id })}\n\n"
                             yield "data: [DONE]\n\n"
                             break
-                    except Exception as e:
-                        logging.exception("Error parsing streamed response chunk")
+                    except Exception:
+                        logging.exception("Error while parsing streamed chunk.")
                         break
-            except Exception as e:
-                logging.exception("Streaming response failed")
+            except Exception:
+                logging.exception("Streaming failed.")
                 yield "data: [ERROR] Streaming failure\n\n"
 
         return Response(stream_with_context(event_stream()), mimetype="text/event-stream")
 
-    # Non-streaming fallback
-    raw_answer = ask_archivist(question, index)
+    # Non-streamed fallback
+    raw_answer = ask_archivist(messages, index)
     title, content = parse_answer(raw_answer)
 
     return jsonify({
