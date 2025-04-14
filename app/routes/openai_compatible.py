@@ -13,7 +13,6 @@ import uuid
 
 openai_bp = Blueprint("openai_compatible", __name__)
 
-# One-time setup
 Settings.embed_model = OllamaEmbedding(model_name=MODEL_NAME, base_url=OLLAMA_API_BASE_URL)
 wait_for_ollama()
 init_db()
@@ -47,28 +46,30 @@ def completions():
                         done = chunk_json.get("done", False)
 
                         if content:
-                            yield f"data: {json.dumps({ \
-                                'id': completion_id, \
-                                'object': 'chat.completion.chunk', \
-                                'choices': [{ \
-                                    'delta': { 'content': content }, \
-                                    'index': 0, \
-                                    'finish_reason': None \
-                                }], \
-                                'model': model_id \
-                            })}\n\n"
+                            message = {
+                                "id": completion_id,
+                                "object": "chat.completion.chunk",
+                                "choices": [{
+                                    "delta": { "content": content },
+                                    "index": 0,
+                                    "finish_reason": None
+                                }],
+                                "model": model_id
+                            }
+                            yield f"data: {json.dumps(message)}\n\n"
 
                         if done:
-                            yield f"data: {json.dumps({ \
-                                'id': completion_id, \
-                                'object': 'chat.completion.chunk', \
-                                'choices': [{ \
-                                    'delta': {}, \
-                                    'index': 0, \
-                                    'finish_reason': 'stop' \
-                                }], \
-                                'model': model_id \
-                            })}\n\n"
+                            final_message = {
+                                "id": completion_id,
+                                "object": "chat.completion.chunk",
+                                "choices": [{
+                                    "delta": {},
+                                    "index": 0,
+                                    "finish_reason": "stop"
+                                }],
+                                "model": model_id
+                            }
+                            yield f"data: {json.dumps(final_message)}\n\n"
                             yield "data: [DONE]\n\n"
                             break
                     except Exception:
