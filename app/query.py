@@ -2,7 +2,7 @@ import os
 import requests
 import logging
 
-# Configure logging if it hasn't been configured already.
+# Configure logging if it hasn't already been configured.
 logging.basicConfig(
     level=logging.DEBUG,
     format="%(asctime)s [%(levelname)s] %(message)s"
@@ -21,12 +21,14 @@ def get_system_prompt():
 def ask_archivist(question, index):
     logging.debug("ask_archivist: Received question: %s", question)
     try:
+        # Retrieve relevant context from the index.
         retriever = index.as_retriever()
         context_docs = retriever.retrieve(question)
         logging.debug("ask_archivist: Retrieved %d context documents.", len(context_docs))
         context_text = "\n\n".join([doc.text for doc in context_docs])
         system_prompt = get_system_prompt()
 
+        # Modified prompt: instruct the model to provide a complete narrative answer.
         prompt = f"""{system_prompt}
 
 Context:
@@ -34,10 +36,10 @@ Context:
 
 User: {question}
 
-Archivist:"""
-        # Log the beginning of the constructed prompt for debugging.
+Archivist (please provide a detailed, comprehensive answer in plain text that addresses the user's question fully):"""
+        
         logging.debug("ask_archivist: Constructed prompt (first 200 chars): %s", prompt[:200])
-
+        
         response = requests.post(
             os.getenv("OLLAMA_API_BASE_URL", "http://ollama:11434") + "/api/generate",
             json={
@@ -70,6 +72,7 @@ def stream_archivist_response(question, index):
         context_text = "\n\n".join([doc.text for doc in context_docs])
         system_prompt = get_system_prompt()
 
+        # Modified prompt for streaming version as well.
         prompt = f"""{system_prompt}
 
 Context:
@@ -77,9 +80,10 @@ Context:
 
 User: {question}
 
-Archivist:"""
+Archivist (please provide a detailed, comprehensive answer in plain text that fully addresses the user's query):"""
+        
         logging.debug("stream_archivist_response: Constructed prompt (first 200 chars): %s", prompt[:200])
-
+        
         response = requests.post(
             os.getenv("OLLAMA_API_BASE_URL", "http://ollama:11434") + "/api/generate",
             json={
@@ -91,6 +95,7 @@ Archivist:"""
             timeout=60
         )
         logging.debug("stream_archivist_response: Received response status: %s", response.status_code)
+        
         for line in response.iter_lines():
             if line:
                 decoded_line = line.decode("utf-8")
