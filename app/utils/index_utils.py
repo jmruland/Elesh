@@ -44,7 +44,7 @@ def build_and_save_index(docs):
     return index
 
 def load_or_create_index():
-    # Use the new API to load an index from storage.
+    # Use the new API to load an index from persistent storage.
     wait_for_ollama()
 
     try:
@@ -55,11 +55,11 @@ def load_or_create_index():
     except Exception as e:
         print(f"[WARN] No index found. Building new index... ({e})")
 
+    # Read documents from the lore directory.
     reader = SimpleDirectoryReader(input_dir=LORE_PATH, recursive=True)
     docs = reader.load_data()
 
     print(f"[{datetime.now().isoformat()}] Loaded {len(docs)} document(s).")
-    # Generate previews for each document.
     lore_summary = []
     for i, doc in enumerate(docs, start=1):
         preview = print_doc_preview(i, doc)
@@ -69,10 +69,10 @@ def load_or_create_index():
             "preview": preview
         })
 
-    # Wrap the list in a dictionary so the front-end can call .get()
+    # Wrap the document previews into a dictionary so the front-end can call .get() on the JSON.
     summary_payload = {
         "document_previews": lore_summary,
-        "ollama_models_missing": []  # Optionally add actual missing models if available.
+        "ollama_models_missing": []  # Update here if you wish to include actual missing models.
     }
     write_lore_summary(summary_payload, SUMMARY_FILE)
 
