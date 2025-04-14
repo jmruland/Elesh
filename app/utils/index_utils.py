@@ -44,7 +44,7 @@ def build_and_save_index(docs):
     return index
 
 def load_or_create_index():
-    # Using the updated API to load an index from storage.
+    # Use the new API to load an index from storage.
     wait_for_ollama()
 
     try:
@@ -59,6 +59,7 @@ def load_or_create_index():
     docs = reader.load_data()
 
     print(f"[{datetime.now().isoformat()}] Loaded {len(docs)} document(s).")
+    # Generate previews for each document.
     lore_summary = []
     for i, doc in enumerate(docs, start=1):
         preview = print_doc_preview(i, doc)
@@ -68,6 +69,11 @@ def load_or_create_index():
             "preview": preview
         })
 
-    write_lore_summary(lore_summary, SUMMARY_FILE)
+    # Wrap the list in a dictionary so the front-end can call .get()
+    summary_payload = {
+        "document_previews": lore_summary,
+        "ollama_models_missing": []  # Optionally add actual missing models if available.
+    }
+    write_lore_summary(summary_payload, SUMMARY_FILE)
 
     return build_and_save_index(docs)
