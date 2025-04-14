@@ -7,6 +7,11 @@ from routes.openai_compatible import openai_bp
 from routes.health import health_bp
 from routes.reload import reload_bp
 from routes.frontend import frontend_bp
+from utils.scheduler import start_scheduler
+from utils.wp_scraper import scrape_wordpress
+
+scrape_wordpress()
+start_scheduler()
 
 from utils.index_utils import load_or_create_index
 from utils.ollama import check_required_ollama_models
