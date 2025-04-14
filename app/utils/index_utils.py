@@ -6,6 +6,7 @@ import os
 from datetime import datetime
 from llama_index.core import SimpleDirectoryReader, VectorStoreIndex, Settings
 from llama_index.embeddings.ollama import OllamaEmbedding
+from llama_index.core.storage import StorageContext
 from config import OLLAMA_API_BASE_URL, MODEL_NAME, LORE_PATH, SUMMARY_FILE, VECTORSTORE_DIR
 from logger import print_doc_preview, write_lore_summary
 
@@ -14,8 +15,8 @@ def wait_for_ollama(timeout=60):
     start = time.time()
     attempt = 1
     while time.time() - start < timeout:
-        print(f"Attempt {attempt}: Checking Ollama at {OLLAMA_API_BASE_URL}/api/embeddings")
         try:
+            print(f"Attempt {attempt}: Checking Ollama at {OLLAMA_API_BASE_URL}/api/embeddings")
             r = requests.post(
                 f"{OLLAMA_API_BASE_URL}/api/embeddings",
                 json={"model": MODEL_NAME, "prompt": "test"},
@@ -25,31 +26,49 @@ def wait_for_ollama(timeout=60):
                 print(f"[{datetime.now().isoformat()}] ✅ Ollama is responsive!")
                 return
             else:
-                print(f"⚠️ Unexpected status: {r.status_code} - {r.text}")
+                print(f"[WARN] Ollama responded with status {r.status_code}")
         except Exception as e:
-            print(f"❌ Waiting... Error: {e}")
-        time.sleep(2)
+            print(f"Waiting... Error: {e}")
         attempt += 1
+        time.sleep(2)
     raise RuntimeError("Ollama not ready after timeout.")
 
-def load_documents():
-    print(f"[{datetime.now().isoformat()}] Loading documents from: {LORE_PATH}")
-    reader = SimpleDirectoryReader(input_dir=LORE_PATH, recursive=True)
-    return reader.load_data()
+def build_and_save_index(docs):
+    embed_model = OllamaEmbedding(model_name=MODEL_NAME, base_url=OLLAMA_API_BASE_URL)
+    Settings.embed_model = embed_model
 
-def summarize_lore(docs):
-    print(f"[{datetime.now().isoformat()}] Creating lore summary...")
-    summary = []
+    print(f"[{datetime.now().isoformat()}] Creating vector index...")
+    index = VectorStoreIndex.from_documents(docs)
+    index.storage_context.persist(persist_dir=VECTORSTORE_DIR)
+    print(f"[{datetime.now().isoformat()}] Indexing complete.")
+    return index
+
+def load_or_create_index():
+    from llama_index.core.storage import load_index_from_storage
+
+    wait_for_ollama()
+
+    try:
+        storage_context = StorageContext.from_defaults(persist_dir=VECTORSTORE_DIR)
+        index = load_index_from_storage(storage_context)
+        print("[INFO] Loaded index from persistent vectorstore.")
+        return index
+    except Exception as e:
+        print(f"[WARN] No index found. Building new index... ({e})")
+
+    reader = SimpleDirectoryReader(input_dir=LORE_PATH, recursive=True)
+    docs = reader.load_data()
+
+    print(f"[{datetime.now().isoformat()}] Loaded {len(docs)} document(s).")
+    lore_summary = []
     for i, doc in enumerate(docs, start=1):
         preview = print_doc_preview(i, doc)
-        summary.append({
+        lore_summary.append({
             "index": i,
             "timestamp": datetime.now().isoformat(),
             "preview": preview
         })
-    write_lore_summary(summary, SUMMARY_FILE)
-    return summary
 
-def build_and_save_index(docs):
-    print(f"[{datetime.now().isoformat()}] Building index...")
-    index
+    write_lore_summary(lore_summary, SUMMARY_FILE)
+
+    return build_and_save_index(docs)
