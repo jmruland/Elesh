@@ -9,7 +9,7 @@ on:
 
 env:
   REGISTRY: docker.io
-  IMAGE_NAME: yourdockerhubusername/elesh-archivist
+  IMAGE_NAME: jmruland/elesh-archivist
   VERSION_FILE: VERSION
 
 jobs:
@@ -27,9 +27,6 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: '3.x'
-
-      - name: Unset Git Credential Helper
-        run: git config --global --unset credential.helper
 
       - name: Determine version
         id: versioning
