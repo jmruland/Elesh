@@ -2,7 +2,7 @@ import os
 import requests
 import logging
 
-# Configure logging if it hasn't already been configured.
+# Configure logging if not already configured.
 logging.basicConfig(
     level=logging.DEBUG,
     format="%(asctime)s [%(levelname)s] %(message)s"
@@ -12,23 +12,22 @@ def get_system_prompt():
     try:
         with open("system.txt", "r", encoding="utf-8") as f:
             prompt = f.read()
-        logging.debug("get_system_prompt: Loaded system prompt successfully.")
+        logging.debug("get_system_prompt: System prompt loaded successfully.")
         return prompt
     except Exception as e:
-        logging.error("get_system_prompt: Could not load system prompt: %s", e, exc_info=True)
+        logging.error("get_system_prompt: Error loading system prompt: %s", e, exc_info=True)
         return ""
 
 def ask_archivist(question, index):
     logging.debug("ask_archivist: Received question: %s", question)
     try:
-        # Retrieve relevant context from the index.
         retriever = index.as_retriever()
         context_docs = retriever.retrieve(question)
         logging.debug("ask_archivist: Retrieved %d context documents.", len(context_docs))
         context_text = "\n\n".join([doc.text for doc in context_docs])
         system_prompt = get_system_prompt()
-
-        # Modified prompt: instruct the model to provide a complete narrative answer.
+        
+        # Updated prompt: Instruct the model to output exactly two parts.
         prompt = f"""{system_prompt}
 
 Context:
@@ -36,8 +35,8 @@ Context:
 
 User: {question}
 
-Archivist (please provide a detailed, comprehensive answer in plain text that addresses the user's question fully):"""
-        
+Archivist (please provide your answer in exactly two parts, each on a separate line. The first line must begin with "Title:" followed by a concise title with an emoji. The second line must begin with "Answer:" followed by a detailed, narrative answer addressing the question fully. Do not include any other text):
+"""
         logging.debug("ask_archivist: Constructed prompt (first 200 chars): %s", prompt[:200])
         
         response = requests.post(
@@ -49,8 +48,8 @@ Archivist (please provide a detailed, comprehensive answer in plain text that ad
             },
             timeout=30
         )
-        logging.debug("ask_archivist: Received response status: %s", response.status_code)
-
+        logging.debug("ask_archivist: Response status: %s", response.status_code)
+        
         if response.ok:
             json_resp = response.json()
             logging.debug("ask_archivist: Response JSON: %s", json_resp)
@@ -71,8 +70,7 @@ def stream_archivist_response(question, index):
         logging.debug("stream_archivist_response: Retrieved %d context documents.", len(context_docs))
         context_text = "\n\n".join([doc.text for doc in context_docs])
         system_prompt = get_system_prompt()
-
-        # Modified prompt for streaming version as well.
+        
         prompt = f"""{system_prompt}
 
 Context:
@@ -80,8 +78,8 @@ Context:
 
 User: {question}
 
-Archivist (please provide a detailed, comprehensive answer in plain text that fully addresses the user's query):"""
-        
+Archivist (please provide your answer in exactly two parts, each on a separate line. The first line must start with "Title:" followed by a concise title with an emoji. The second line must start with "Answer:" followed by a detailed explanation of your answer. Do not include any extra text):
+"""
         logging.debug("stream_archivist_response: Constructed prompt (first 200 chars): %s", prompt[:200])
         
         response = requests.post(
@@ -94,8 +92,7 @@ Archivist (please provide a detailed, comprehensive answer in plain text that fu
             stream=True,
             timeout=60
         )
-        logging.debug("stream_archivist_response: Received response status: %s", response.status_code)
-        
+        logging.debug("stream_archivist_response: Response status: %s", response.status_code)
         for line in response.iter_lines():
             if line:
                 decoded_line = line.decode("utf-8")

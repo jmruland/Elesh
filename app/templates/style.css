@@ -1,0 +1,55 @@
+@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@600&family=EB+Garamond&display=swap');
+
+body {
+    font-family: 'EB Garamond', serif;
+    background: url('https://www.transparenttextures.com/patterns/cream-pixels.png'), #f2ede3;
+    color: #2e1a12;
+    margin: 2em;
+    padding: 2em;
+    border: 3px double #a88c5f;
+    border-radius: 12px;
+    box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
+}
+
+h1,
+h2 {
+    font-family: 'Cinzel', serif;
+    color: #4a2c19;
+    text-align: center;
+    text-shadow: 1px 1px #d4c0a1;
+}
+
+ul {
+    list-style-type: none;
+    padding-left: 0;
+}
+
+li {
+    margin: 0.75em 0;
+    font-size: 1.1em;
+}
+
+.ok {
+    color: #20732d;
+}
+
+.warn {
+    color: #a86f00;
+}
+
+.fail {
+    color: #8b0000;
+}
+
+code {
+    background: #e8e0c5;
+    padding: 3px 6px;
+    border-radius: 4px;
+    font-family: monospace;
+}
+
+.sigil {
+    text-align: center;
+    font-size: 2em;
+    margin-bottom: 1em;
+}

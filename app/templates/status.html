@@ -5,62 +5,24 @@
     <meta charset="UTF-8">
     <title>Elesh Archivist Status</title>
     <meta http-equiv="refresh" content="30">
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            background: #f9f9f9;
-            margin: 2em;
-        }
-
-        h1 {
-            color: #333;
-        }
-
-        ul {
-            list-style-type: none;
-            padding-left: 0;
-        }
-
-        li {
-            margin: 0.5em 0;
-        }
-
-        .ok {
-            color: green;
-        }
-
-        .warn {
-            color: darkorange;
-        }
-
-        .fail {
-            color: red;
-        }
-
-        code {
-            background: #eee;
-            padding: 2px 4px;
-        }
-    </style>
+    <link rel="stylesheet" href="/templates/style.css">
 </head>
 
 <body>
+    <div class="sigil">📜</div>
     <h1>Elesh Archivist Status</h1>
     <ul>
-        <li><strong>📁 Lore Directory:</strong> <code>{{ status.lore.lore_path or "Unknown" }}</code></li>
-        <li><strong>📚 Documents Indexed:</strong> {{ status.lore.total_files or 0 }}</li>
-        <li><strong>📅 Last Reload:</strong> {{ status.lore.timestamp or "Not available" }}</li>
-        {% if status.lore.ollama_ok %}
+        <li><strong>📁 Lore Directory:</strong> <code>{{ lore_path }}</code></li>
+        <li><strong>📚 Documents Indexed:</strong> {{ lore_count }}</li>
+        {% if ollama_status %}
         <li class="ok"><strong>✅ Ollama Connection:</strong> OK</li>
+        {% if ollama_models_missing %}
+        <li class="warn"><strong>⚠️ Missing Ollama Models:</strong> {{ ollama_models_missing }}</li>
+        {% endif %}
         {% else %}
         <li class="fail"><strong>❌ Ollama Connection:</strong> Failed</li>
         {% endif %}
-        {% if status.lore.ollama_models_missing %}
-        <li class="warn"><strong>⚠️ Missing Ollama Models:</strong> {{ status.lore.ollama_models_missing | join(", ") }}
-        </li>
-        {% endif %}
     </ul>
-    <p><em>This page refreshes every 30 seconds.</em></p>
 </body>
 
 </html>

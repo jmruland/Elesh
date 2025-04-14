@@ -3,62 +3,18 @@
 
 <head>
   <meta charset="UTF-8">
-  <title>Elesh Archivist Status</title>
-  <meta http-equiv="refresh" content="30">
-  <style>
-    body {
-      font-family: Arial, sans-serif;
-      background: #f9f9f9;
-      margin: 2em;
-    }
-
-    h1 {
-      color: #333;
-    }
-
-    ul {
-      list-style-type: none;
-      padding-left: 0;
-    }
-
-    li {
-      margin: 0.5em 0;
-    }
-
-    .ok {
-      color: green;
-    }
-
-    .warn {
-      color: darkorange;
-    }
-
-    .fail {
-      color: red;
-    }
-
-    code {
-      background: #eee;
-      padding: 2px 4px;
-    }
-  </style>
+  <title>Elesh Archivist</title>
+  <link rel="stylesheet" href="/templates/style.css">
 </head>
 
 <body>
-  <h1>Elesh Archivist Status</h1>
+  <div class="sigil">📜</div>
+  <h1>Welcome to the Elesh Archivist</h1>
   <ul>
-    <li><strong>📁 Lore Directory:</strong> <code>{{ lore_path }}</code></li>
-    <li><strong>📚 Documents Indexed:</strong> {{ lore_count }}</li>
-    {% if ollama_status %}
-    <li class="ok"><strong>✅ Ollama Connection:</strong> OK</li>
-    {% if ollama_models_missing %}
-    <li class="warn"><strong>⚠️ Missing Ollama Models:</strong> {{ ollama_models_missing | join(", ") }}</li>
-    {% endif %}
-    {% else %}
-    <li class="fail"><strong>❌ Ollama Connection:</strong> Failed</li>
-    {% endif %}
+    <li><a href="/status">📖 System Status</a></li>
+    <li><a href="/ask">🔮 Ask the Archivist</a></li>
+    <li><a href="/reload">♻️ Reload Lore</a></li>
   </ul>
-  <p><em>This page refreshes every 30 seconds.</em></p>
 </body>
 
 </html>
