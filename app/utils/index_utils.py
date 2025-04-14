@@ -44,7 +44,7 @@ def build_and_save_index(docs):
     return index
 
 def load_or_create_index():
-    from llama_index.core.storage import load_index_from_storage
+    from llama_index.core import load_index_from_storage  # <-- updated here
 
     wait_for_ollama()
 
