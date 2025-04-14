@@ -44,14 +44,12 @@ def build_and_save_index(docs):
     return index
 
 def load_or_create_index():
-    # Updated import as per new structure in LlamaIndex
-    from llama_index import load_index_from_storage
-
+    # Using the updated API to load an index from storage.
     wait_for_ollama()
 
     try:
         storage_context = StorageContext.from_defaults(persist_dir=VECTORSTORE_DIR)
-        index = load_index_from_storage(storage_context)
+        index = VectorStoreIndex.from_storage(storage_context)
         print("[INFO] Loaded index from persistent vectorstore.")
         return index
     except Exception as e:
