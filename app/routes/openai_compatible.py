@@ -106,7 +106,9 @@ def models():
             "id": "elesh-archivist",
             "object": "model",
             "created": 0,
-            "owned_by": "user",
-            "permission": []
+            "owned_by": "James Ruland",
+            "permission": [],
+            "name": "Elesh Archivist",
+            "display_name": "Elesh the Archivist 🧙‍♂️"
         }]
     })
