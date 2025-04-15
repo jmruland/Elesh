@@ -12,7 +12,7 @@ DOCUMENT_TYPES = {
 }
 
 def ensure_lore_dirs():
-    """Ensure that base lore, lore/lore, and lore/rules directories exist."""
+    """Ensure that relevant directories exist for lore and rules."""
     for folder in [LORE_PATH] + list(DOCUMENT_TYPES.values()):
         try:
             os.makedirs(folder, exist_ok=True)
@@ -27,12 +27,19 @@ def get_documents():
             logger.warning(f"{doc_type.capitalize()} directory {path} does not exist. Skipping.")
             continue
         reader = SimpleDirectoryReader(input_dir=path, recursive=True)
-        docs = reader.load_data()
+        try:
+            docs = reader.load_data()
+        except Exception as e:
+            logger.error(f"Error loading documents from {path}: {e}")
+            continue
         for d in docs:
             d.extra_metadata = {"type": doc_type}
         tagged_docs.extend(docs)
         logger.info(f"Loaded {len(docs)} '{doc_type}' documents from {path}.")
     logger.info(f"Total documents loaded: {len(tagged_docs)}")
+    if not tagged_docs:
+        logger.error("No files found in any lore or rules directory. Indexing aborted.")
+        raise RuntimeError("No files found in lore or rules.")
     return tagged_docs
 
 def build_and_save_index(docs):
@@ -56,5 +63,9 @@ def load_or_create_index():
     except Exception as e:
         logger.warning(f"No persisted index found or failed to load. ({e})")
         logger.info("Building new index from available documents...")
-        docs = get_documents()
-        return build_and_save_index(docs)
+        try:
+            docs = get_documents()
+            return build_and_save_index(docs)
+        except Exception as final_e:
+            logger.error(f"Failed to load vector index: {final_e}")
+            raise
