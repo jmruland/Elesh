@@ -1,32 +1,49 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 
 <head>
-    <meta charset="UTF-8">
     <title>Elesh Archivist Status</title>
-    <meta http-equiv="refresh" content="30">
-    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <style>
+        body {
+            font-family: sans-serif;
+        }
+
+        .status {
+            margin-bottom: 1.5em;
+        }
+
+        ul {
+            margin-top: 0.4em;
+        }
+    </style>
 </head>
 
 <body>
-    <div class="sigil">📜</div>
     <h1>Elesh Archivist Status</h1>
-    <ul>
-        <li><strong>📁 Lore Directory:</strong> <code>{{ lore_path }}</code></li>
-        <li><strong>📚 Documents Indexed:</strong> {{ lore_count }}</li>
-        {% if ollama_status %}
-        <li class="ok"><strong>✅ Ollama Connection:</strong> OK</li>
-        {% if ollama_models_missing %}
-        <li class="warn"><strong>⚠️ Missing Ollama Models:</strong> {{ ollama_models_missing }}</li>
-        {% endif %}
-        {% else %}
-        <li class="fail"><strong>❌ Ollama Connection:</strong> Failed</li>
-        {% endif %}
-        <h2>🧱 Docker Space Usage</h2>
-        <pre style="background: #f8f5e9; padding: 1em; border-radius: 8px; box-shadow: inset 0 0 6px #ccc;">
-        {{ docker_usage }}
-        </pre>
-    </ul>
+    <div class="status">
+        <b>Lore and Rules Directory:</b> {{ lore_path }} <br />
+        <b>Vectorstore Present:</b> {{ 'Yes' if vectorstore_exists else 'No' }}<br />
+    </div>
+    <div class="status">
+        <b>Lore files ({{ lore_count }}):</b>
+        <ul>
+            {% for fname in lore_files %}
+            <li>{{ fname }}</li>
+            {% else %}
+            <li>No lore files found.</li>
+            {% endfor %}
+        </ul>
+    </div>
+    <div class="status">
+        <b>Rulebook files ({{ rules_count }}):</b>
+        <ul>
+            {% for fname in rules_files %}
+            <li>{{ fname }}</li>
+            {% else %}
+            <li>No rules files found.</li>
+            {% endfor %}
+        </ul>
+    </div>
 </body>
 
 </html>
