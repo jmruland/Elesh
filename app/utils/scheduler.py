@@ -1,3 +1,4 @@
+import os
 import threading
 import time
 from utils.wp_scraper import scrape_wordpress
