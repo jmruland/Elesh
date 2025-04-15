@@ -3,16 +3,16 @@ from llama_index.core import SimpleDirectoryReader, VectorStoreIndex, Settings
 from llama_index.embeddings.ollama import OllamaEmbedding
 from llama_index.core.storage import StorageContext
 from utils.logger import logger
-from config import OLLAMA_API_BASE_URL, MODEL_NAME, LORE_PATH, VECTORSTORE_DIR
+from config import OLLAMA_API_BASE_URL, MODEL_NAME, LORE_PATH, RULEBOOKS_PATH, VECTORSTORE_DIR
 
 DOCUMENT_TYPES = {
-    "lore": os.path.join(LORE_PATH, "lore"),
-    "rules": os.path.join(LORE_PATH, "rules"),
+    "lore": LORE_PATH,
+    "rules": RULEBOOKS_PATH,
 }
 
-def ensure_lore_dirs():
-    """Ensure that all relevant data directories exist."""
-    for folder in [LORE_PATH] + list(DOCUMENT_TYPES.values()) + [VECTORSTORE_DIR]:
+def ensure_data_dirs():
+    """Ensure all persistent data directories exist."""
+    for folder in [LORE_PATH, RULEBOOKS_PATH, VECTORSTORE_DIR]:
         try:
             os.makedirs(folder, exist_ok=True)
             logger.info(f"Ensured directory exists: {folder}")
@@ -36,7 +36,7 @@ def get_documents():
             logger.error(f"Error reading documents from {path}: {e}")
     logger.info(f"Total documents loaded: {len(tagged_docs)}")
     if not tagged_docs:
-        logger.warning("No files found in any lore or rules directory.")
+        logger.warning("No files found in any lore or rulebooks directory.")
     return tagged_docs
 
 def build_and_save_index(docs):
@@ -50,7 +50,7 @@ def build_and_save_index(docs):
 
 def load_or_create_index():
     """Ensures directory structure, then loads or builds the vector index."""
-    ensure_lore_dirs()
+    ensure_data_dirs()
     logger.info(f"Attempting to load existing vectorstore from {VECTORSTORE_DIR}...")
     try:
         storage_context = StorageContext.from_defaults(persist_dir=VECTORSTORE_DIR)

@@ -7,7 +7,7 @@ services:
     ports:
       - "5005:5005"
     volumes:
-      - /mnt/infrastructure:/app # SINGLE volume mount!
+      - /mnt/infrastructure/elesh-archivist:/data # SINGLE volume mount!
     environment:
       - OLLAMA_API_BASE_URL=http://ollama:11434
       - MODEL_NAME=nomic-embed-text

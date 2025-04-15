@@ -1,7 +1,9 @@
 import os
 
-BASE_PATH = os.getenv("BASE_PATH", "/app")
+BASE_PATH = os.getenv("BASE_PATH", "/data")
+
 LORE_PATH = os.path.join(BASE_PATH, "lore")
+RULEBOOKS_PATH = os.path.join(BASE_PATH, "rulebooks")
 VECTORSTORE_DIR = os.path.join(BASE_PATH, "vectorstore")
 SYSTEM_PROMPT_FILE = os.path.join(BASE_PATH, "system.txt")
 
@@ -9,7 +11,6 @@ OLLAMA_API_BASE_URL = os.getenv("OLLAMA_API_BASE_URL", "http://ollama:11434")
 MODEL_NAME = os.getenv("MODEL_NAME", "nomic-embed-text")
 LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO")
 
-# Built-in fallback prompt
 DEFAULT_SYSTEM_PROMPT = """\
 You are Elesh, the Grand Archivist of the Arcane Commonwealth.
 
