@@ -1,88 +1,40 @@
-# app/routes/openai_compatible.py
-
-from flask import Blueprint, request, Response, stream_with_context, jsonify
-from llama_index.embeddings.ollama import OllamaEmbedding
-from llama_index.core.settings import Settings
-from query import ask_archivist, stream_archivist_response, get_system_prompt
-from utils.index_utils import wait_for_ollama, load_or_create_index
-from config import MODEL_NAME, OLLAMA_API_BASE_URL
-from utils.db import init_db
-import logging
-import json
-import uuid
+from flask import Blueprint, request, jsonify, current_app
+from query import ask_archivist
+from utils.logger import logger
 
 openai_bp = Blueprint("openai_compatible", __name__)
 
-Settings.embed_model = OllamaEmbedding(model_name=MODEL_NAME, base_url=OLLAMA_API_BASE_URL)
-wait_for_ollama()
-init_db()
-
-index = load_or_create_index()
-if index:
-    logging.info("openai_compatible: Vector index is ready.")
-else:
-    logging.error("openai_compatible: Failed to load vector index.")
-
 @openai_bp.route("/v1/chat/completions", methods=["POST"])
-def completions():
-    if not index:
-        return jsonify({"error": "Vector index not available"}), 500
-
+def chat_completions():
+    index = current_app.config.get("INDEX")
     data = request.get_json()
-    messages = data.get("messages", [])
+    model_id = data.get("model", "elesh-archivist")
     user_id = data.get("user", "anonymous")
-    stream = data.get("stream", False)
+    # OpenAI format: expects a list of messages
+    messages = data.get("messages", [])
+    # Custom extension: allow passing 'corpus' parameter
+    corpus = data.get("corpus", "both")  # "lore", "rules", or "both"
 
-    model_id = "elesh-archivist"
-    completion_id = str(uuid.uuid4())
+    if not index:
+        logger.warning("OpenAI /chat/completions called but no index available.")
+        return jsonify({
+            "id": None,
+            "object": "chat.completion",
+            "choices": [{
+                "index": 0,
+                "message": {
+                    "role": "assistant",
+                    "content": "The Archivist is not yet connected to the lore archive."
+                },
+                "finish_reason": "stop"
+            }],
+            "model": model_id,
+        })
 
-    if stream:
-        def event_stream():
-            try:
-                for chunk in stream_archivist_response(messages, index, user_id):
-                    try:
-                        chunk_json = json.loads(chunk)
-                        content = chunk_json.get("response", "")
-                        done = chunk_json.get("done", False)
-
-                        if content:
-                            message = {
-                                "id": completion_id,
-                                "object": "chat.completion.chunk",
-                                "choices": [{
-                                    "delta": { "content": content },
-                                    "index": 0,
-                                    "finish_reason": None
-                                }],
-                                "model": model_id
-                            }
-                            yield f"data: {json.dumps(message)}\n\n"
-
-                        if done:
-                            final_message = {
-                                "id": completion_id,
-                                "object": "chat.completion.chunk",
-                                "choices": [{
-                                    "delta": {},
-                                    "index": 0,
-                                    "finish_reason": "stop"
-                                }],
-                                "model": model_id
-                            }
-                            yield f"data: {json.dumps(final_message)}\n\n"
-                            yield "data: [DONE]\n\n"
-                            break
-                    except Exception:
-                        logging.exception("openai_compatible: Failed to parse streamed response chunk")
-                        yield "data: [ERROR] Streaming error\n\n"
-            except Exception:
-                logging.exception("openai_compatible: Streaming failed")
-                yield "data: [ERROR] Stream failed\n\n"
-
-        return Response(stream_with_context(event_stream()), mimetype="text/event-stream")
-
-    raw_answer = ask_archivist(messages, index, user_id)
-
+    logger.info(f"OpenAI completions: user_id={user_id}, model={model_id}, corpus={corpus}")
+    response = ask_archivist(messages, index, user_id=user_id, corpus=corpus)
+    
+    completion_id = "cmpl-" + os.urandom(6).hex()
     return jsonify({
         "id": completion_id,
         "object": "chat.completion",
@@ -90,23 +42,23 @@ def completions():
             "index": 0,
             "message": {
                 "role": "assistant",
-                "content": raw_answer
+                "content": response
             },
             "finish_reason": "stop"
         }],
         "model": model_id,
-        "system_prompt": get_system_prompt()
     })
 
 @openai_bp.route("/v1/models", methods=["GET"])
 def models():
+    # Expose available models -- simple stub
     return jsonify({
         "object": "list",
         "data": [{
             "id": "elesh-archivist",
             "object": "model",
             "created": 0,
-            "owned_by": "James Ruland",
+            "owned_by": "Elesh Archivist",
             "permission": [],
             "name": "Elesh Archivist",
             "display_name": "Elesh the Archivist 🧙‍♂️"
