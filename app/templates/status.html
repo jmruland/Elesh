@@ -12,18 +12,38 @@
             margin-bottom: 1.5em;
         }
 
+        textarea {
+            width: 95%;
+        }
+
         ul {
             margin-top: 0.4em;
         }
     </style>
+    <script>
+        function renewIndex(ev) {
+            ev.preventDefault();
+            fetch("/renew", { method: "POST" })
+                .then(r => r.json())
+                .then(j => alert("Index reloaded!"))
+                .catch(e => alert("Reload failed."));
+        }
+        function savePrompt(ev) {
+            ev.preventDefault();
+            var data = new FormData(document.getElementById("promptform"));
+            fetch("/system_prompt", { method: "POST", body: data })
+                .then(r => r.json())
+                .then(j => {
+                    if (j.status) alert("Prompt saved and index reloaded.");
+                    else alert(j.error || "Save failed.");
+                })
+                .catch(e => alert("Save failed."));
+        }
+    </script>
 </head>
 
 <body>
     <h1>Elesh Archivist Status</h1>
-    <div class="status">
-        <b>Lore and Rules Directory:</b> {{ lore_path }} <br />
-        <b>Vectorstore Present:</b> {{ 'Yes' if vectorstore_exists else 'No' }}<br />
-    </div>
     <div class="status">
         <b>Lore files ({{ lore_count }}):</b>
         <ul>
@@ -33,8 +53,6 @@
             <li>No lore files found.</li>
             {% endfor %}
         </ul>
-    </div>
-    <div class="status">
         <b>Rulebook files ({{ rules_count }}):</b>
         <ul>
             {% for fname in rules_files %}
@@ -43,6 +61,18 @@
             <li>No rules files found.</li>
             {% endfor %}
         </ul>
+    </div>
+    <div class="status">
+        <form id="promptform" onsubmit="savePrompt(event)">
+            <label for="prompt">System Prompt:</label><br>
+            <textarea id="prompt" name="prompt" rows="14">{{ prompt }}</textarea><br>
+            <button type="submit">Save & Reload (Prompt)</button>
+        </form>
+    </div>
+    <div class="status">
+        <form onsubmit="renewIndex(event)">
+            <button type="submit">Rescan Lore/Rules (Renew Index)</button>
+        </form>
     </div>
 </body>
 

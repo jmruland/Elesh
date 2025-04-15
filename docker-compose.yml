@@ -7,11 +7,11 @@ services:
     ports:
       - "5005:5005"
     volumes:
-      - /mnt/infrastructure/elesh-archivist/lore:/app/lore
-      - /mnt/infrastructure/elesh-archivist/system.txt:/app/system.txt
-      - /mnt/infrastructure/elesh-archivist/vectorstore:/app/vectorstore
+      - /mnt/infrastructure:/app # SINGLE volume mount!
     environment:
       - OLLAMA_API_BASE_URL=http://ollama:11434
+      - MODEL_NAME=nomic-embed-text
+      - LOG_LEVEL=INFO
     depends_on:
       - ollama
     restart: unless-stopped
@@ -24,7 +24,7 @@ services:
     ports:
       - "11434:11434"
     volumes:
-      - /mnt/infrastructure/ollama/.ollama:/root/.ollama
+      - /mnt/infrastructure/.ollama:/root/.ollama
     restart: always
     networks:
       - backend
