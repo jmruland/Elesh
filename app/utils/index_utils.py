@@ -29,7 +29,8 @@ def get_documents():
             reader = SimpleDirectoryReader(input_dir=path, recursive=True)
             docs = reader.load_data()
             for d in docs:
-                d.extra_metadata = {"type": doc_type}
+                if hasattr(d, "metadata") and isinstance(d.metadata, dict):
+                    d.metadata["type"] = doc_type
             tagged_docs.extend(docs)
             logger.info(f"Loaded {len(docs)} '{doc_type}' documents from {path}.")
         except Exception as e:
