@@ -55,7 +55,15 @@ def load_or_create_index():
     logger.info(f"Attempting to load existing vectorstore from {VECTORSTORE_DIR}...")
     try:
         storage_context = StorageContext.from_defaults(persist_dir=VECTORSTORE_DIR)
-        index = VectorStoreIndex.load_from_storage(storage_context)
+        # Robust loader for multiple llama-index versions
+        if hasattr(VectorStoreIndex, "load_from_storage"):
+            index = VectorStoreIndex.load_from_storage(storage_context)
+        elif hasattr(VectorStoreIndex, "from_storage"):
+            index = VectorStoreIndex.from_storage(storage_context)
+        elif hasattr(VectorStoreIndex, "from_vector_store"):
+            index = VectorStoreIndex.from_vector_store(storage_context)
+        else:
+            raise RuntimeError("No valid load method found on VectorStoreIndex.")
         logger.info("Existing index loaded successfully from disk.")
         return index
     except Exception as e:
