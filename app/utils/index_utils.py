@@ -1,9 +1,17 @@
 import os
+import time
+import requests
 from llama_index.core import SimpleDirectoryReader, VectorStoreIndex, Settings
 from llama_index.embeddings.ollama import OllamaEmbedding
 from llama_index.core.storage import StorageContext
 from utils.logger import logger
-from config import OLLAMA_API_BASE_URL, MODEL_NAME, LORE_PATH, RULEBOOKS_PATH, VECTORSTORE_DIR
+from config import (
+    OLLAMA_API_BASE_URL,
+    MODEL_NAME,
+    LORE_PATH,
+    RULEBOOKS_PATH,
+    VECTORSTORE_DIR,
+)
 
 DOCUMENT_TYPES = {
     "lore": LORE_PATH,
@@ -19,6 +27,29 @@ def ensure_data_dirs():
         except Exception as e:
             logger.error(f"Failed to ensure directory {folder}: {e}")
 
+def wait_for_ollama(url=OLLAMA_API_BASE_URL, timeout=60):
+    logger.info("Waiting for Ollama to be ready...")
+    start = time.time()
+    attempt = 1
+    while time.time() - start < timeout:
+        logger.info(f"Attempt {attempt}: Checking Ollama at {url}/api/embeddings")
+        try:
+            r = requests.post(
+                f"{url}/api/embeddings",
+                json={"model": MODEL_NAME, "prompt": "test"},
+                timeout=3
+            )
+            if r.status_code == 200:
+                logger.info("Ollama is ready and embedding model is responsive!")
+                return
+            else:
+                logger.warning(f"Ollama unexpected response code: {r.status_code}, Body: {r.text}")
+        except Exception as e:
+            logger.warning(f"Waiting... Error: {e}")
+        attempt += 1
+        time.sleep(2)
+    raise RuntimeError("Ollama did not respond to embedding requests in time.")
+
 def get_documents():
     tagged_docs = []
     for doc_type, path in DOCUMENT_TYPES.items():
@@ -29,6 +60,7 @@ def get_documents():
             reader = SimpleDirectoryReader(input_dir=path, recursive=True)
             docs = reader.load_data()
             for d in docs:
+                # Attach type as additional metadata (if possible)
                 if hasattr(d, "metadata") and isinstance(d.metadata, dict):
                     d.metadata["type"] = doc_type
             tagged_docs.extend(docs)
@@ -53,17 +85,10 @@ def load_or_create_index():
     """Ensures directory structure, then loads or builds the vector index."""
     ensure_data_dirs()
     logger.info(f"Attempting to load existing vectorstore from {VECTORSTORE_DIR}...")
+    wait_for_ollama()
     try:
         storage_context = StorageContext.from_defaults(persist_dir=VECTORSTORE_DIR)
-        # Robust loader for multiple llama-index versions
-        if hasattr(VectorStoreIndex, "load_from_storage"):
-            index = VectorStoreIndex.load_from_storage(storage_context)
-        elif hasattr(VectorStoreIndex, "from_storage"):
-            index = VectorStoreIndex.from_storage(storage_context)
-        elif hasattr(VectorStoreIndex, "from_vector_store"):
-            index = VectorStoreIndex.from_vector_store(storage_context)
-        else:
-            raise RuntimeError("No valid load method found on VectorStoreIndex.")
+        index = VectorStoreIndex.load_from_storage(storage_context)
         logger.info("Existing index loaded successfully from disk.")
         return index
     except Exception as e:
