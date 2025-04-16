@@ -2,7 +2,7 @@ from flask import Blueprint, jsonify, current_app
 import os
 import json
 from utils.logger import logger
-from config import SUMMARY_FILE, LORE_PATH
+from config import LORE_PATH, RULEBOOKS_PATH
 
 status_bp = Blueprint("status", __name__)
 

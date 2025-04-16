@@ -6,18 +6,61 @@
     <style>
         body {
             font-family: sans-serif;
+            background: #fafaff;
         }
 
-        .status {
-            margin-bottom: 1.5em;
+        .status-section {
+            border: 1px solid #eee;
+            border-radius: 7px;
+            background: #fff;
+            margin-bottom: 1.2em;
+            padding: 1em;
+            box-shadow: 1px 2px 6px #ddd;
+        }
+
+        .ok {
+            color: green;
+        }
+
+        .warn {
+            color: #844;
+            background: #ffe5e5;
+            border-radius: 5px;
+            padding: 4px 8px;
+            font-size: 95%;
+        }
+
+        .filename-list {
+            margin: 0.3em 0 0.7em 1.2em;
+            font-size: 95%;
+            color: #444;
         }
 
         textarea {
-            width: 95%;
+            width: 98%;
         }
 
-        ul {
-            margin-top: 0.4em;
+        button {
+            padding: 8px 18px;
+            margin: 7px 0;
+        }
+
+        .error {
+            background: #fcdcdc;
+            border: 1px solid #e66;
+            color: #900;
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 6px;
+        }
+
+        .banner {
+            background: #e8f8e1;
+            color: #305f26;
+            padding: 7px 12px;
+            border-radius: 5px;
+            display: inline-block;
+            margin-bottom: 7px;
         }
     </style>
     <script>
@@ -25,7 +68,7 @@
             ev.preventDefault();
             fetch("/renew", { method: "POST" })
                 .then(r => r.json())
-                .then(j => alert("Index reloaded!"))
+                .then(j => { alert("Index reloaded!"); window.location.reload(); })
                 .catch(e => alert("Reload failed."));
         }
         function savePrompt(ev) {
@@ -36,6 +79,7 @@
                 .then(j => {
                     if (j.status) alert("Prompt saved and index reloaded.");
                     else alert(j.error || "Save failed.");
+                    window.location.reload();
                 })
                 .catch(e => alert("Save failed."));
         }
@@ -43,36 +87,69 @@
 </head>
 
 <body>
-    <h1>Elesh Archivist Status</h1>
-    <div class="status">
+    <h1>Elesh Archivist: Status</h1>
+
+    {% if error %}
+    <div class="error">{{ error }}</div>
+    {% endif %}
+    {% if warn %}
+    <div class="warn">{{ warn }}</div>
+    {% endif %}
+    {% if banner %}
+    <div class="banner">{{ banner }}</div>
+    {% endif %}
+
+    <div class="status-section">
         <b>Lore files ({{ lore_count }}):</b>
-        <ul>
+        <ul class="filename-list">
             {% for fname in lore_files %}
             <li>{{ fname }}</li>
             {% else %}
-            <li>No lore files found.</li>
+            <li>No lore files found (add .md or .txt files to /data/lore)</li>
             {% endfor %}
         </ul>
+
         <b>Rulebook files ({{ rules_count }}):</b>
-        <ul>
+        <ul class="filename-list">
             {% for fname in rules_files %}
             <li>{{ fname }}</li>
             {% else %}
-            <li>No rules files found.</li>
+            <li>No rulebook files found (add .md or .txt files to /data/rulebooks)</li>
             {% endfor %}
         </ul>
     </div>
-    <div class="status">
+    <div class="status-section">
+        <span><b>Vector Index:</b>
+            {% if index_status %}<span class="ok">{{ index_status }}</span>{% else %}<span class="warn">Not loaded
+                yet</span>{% endif %}
+            {% if last_reload %} &mdash; last reload: {{ last_reload }} {% endif %}
+        </span><br />
+        <span><b>Ollama status:</b>
+            {% if ollama_status %}<span class="ok">Reachable</span>{% else %}<span class="warn">Disconnected (check
+                Ollama server)</span>{% endif %}
+        </span>
+    </div>
+    <div class="status-section">
         <form id="promptform" onsubmit="savePrompt(event)">
-            <label for="prompt">System Prompt:</label><br>
-            <textarea id="prompt" name="prompt" rows="14">{{ prompt }}</textarea><br>
-            <button type="submit">Save & Reload (Prompt)</button>
+            <label for="prompt"><b>System Prompt:</b></label><br>
+            <textarea id="prompt" name="prompt" rows="12">{{ prompt }}</textarea><br>
+            <button type="submit">Save & Reload Prompt</button>
         </form>
     </div>
-    <div class="status">
+    <div class="status-section">
         <form onsubmit="renewIndex(event)">
-            <button type="submit">Rescan Lore/Rules (Renew Index)</button>
+            <button type="submit">Rescan Lore/Rulebooks (Renew Index)</button>
         </form>
+    </div>
+    <div class="status-section" style="background:#f6fcff">
+        <b>Quick help:</b>
+        <ul>
+            <li>Add your lore files to <code>/data/lore</code>, rulebooks to <code>/data/rulebooks</code> then click
+                <b>Renew</b>.</li>
+            <li>Edit the system prompt to guide the archivist's persona.</li>
+            <li>If you see "Not loaded yet" for the index, add content and rescan!</li>
+            <li>If Ollama is "Disconnected," make sure the model backend is running/healthy.</li>
+        </ul>
     </div>
 </body>
 
