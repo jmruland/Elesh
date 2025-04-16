@@ -1,3 +1,4 @@
+import os
 from flask import Blueprint, request, jsonify, current_app
 from query import ask_archivist
 from utils.logger import logger
